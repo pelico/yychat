@@ -457,7 +457,45 @@
     roomName.textContent = room;
     gate.style.display = "none";
     app.classList.add("show");
+    // 请求通知权限（异步，不阻塞进入）
+    requestNotifyPerm();
     connect();
+  }
+
+  // ===== 浏览器通知 =====
+  function requestNotifyPerm() {
+    try {
+      if (!("Notification" in window)) return;
+      if (Notification.permission === "default") Notification.requestPermission();
+    } catch (e) {}
+  }
+  function notify(title, body) {
+    try {
+      if (!("Notification" in window)) return;
+      if (Notification.permission !== "granted") return;
+      // 仅当页面隐藏或不在聊天视图时弹通知，避免打扰当前聊天
+      var notInChat = document.hidden || (chatView && chatView.style.display === "none");
+      if (!notInChat) return;
+      var n = new Notification(title, {
+        body: body,
+        tag: "yychat-msg",
+        renotify: true
+      });
+      n.onclick = function () {
+        try { window.focus(); } catch (e) {}
+        // 切回聊天视图
+        if (chatView) {
+          chatView.style.display = "";
+          gamesView.classList.remove("show");
+          navBtns.forEach(function (b) {
+            b.classList.toggle("active", b.getAttribute("data-view") === "chat");
+          });
+        }
+        n.close();
+      };
+      // 4 秒后自动关闭
+      setTimeout(function () { try { n.close(); } catch (e) {} }, 4000);
+    } catch (e) {}
   }
 
   // ===== MQTT 连接 =====
@@ -520,10 +558,15 @@
     } else if (msg.type === "chat") {
       // 自己发的也会收到（broker 回环），用 id 去重
       if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
-      addChat(msg.nick || "匿名", msg.text || "", msg.t || Date.now(), false);
+      var fromNick = msg.nick || "匿名";
+      addChat(fromNick, msg.text || "", msg.t || Date.now(), false);
+      // 系统通知（仅别人消息）
+      notify(fromNick + " 来了新消息", msg.text || "");
     } else if (msg.type === "image") {
       if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
-      addImage(msg.nick || "匿名", msg.data || "", msg.t || Date.now(), false);
+      var imgNick = msg.nick || "匿名";
+      addImage(imgNick, msg.data || "", msg.t || Date.now(), false);
+      notify(imgNick + " 发来图片", "点击查看");
     }
   }
 
