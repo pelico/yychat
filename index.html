@@ -651,6 +651,8 @@
     var img = document.createElement("img");
     img.src = dataUrl;
     img.alt = "画板作品";
+    // 图片加载完成后再次滚动到底部，避免图片撑开后需手动下滑
+    img.addEventListener("load", function () { maybeScroll(); });
     bubble.appendChild(img);
     wrap.appendChild(bubble);
     var timeEl = document.createElement("div");
