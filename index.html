@@ -1,1 +1,476 @@
-hello
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>即时聊天室</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --accent: #6366f1;
+    --accent-2: #8b5cf6;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --me: #4f46e5;
+    --other: #334155;
+    --ok: #22c55e;
+    --err: #ef4444;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  /* ---------- 入场页 ---------- */
+  #gate {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .card {
+    width: 100%; max-width: 420px; background: rgba(30, 41, 59, .85);
+    backdrop-filter: blur(12px); border: 1px solid rgba(148,163,184,.15);
+    border-radius: 20px; padding: 32px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .card h1 { margin: 0 0 6px; font-size: 24px; text-align: center;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .card p.sub { text-align: center; color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(148,163,184,.2);
+    background: rgba(15,23,42,.6); color: var(--text); font-size: 15px; outline: none; transition: border-color .2s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .btn {
+    width: 100%; padding: 13px; border: none; border-radius: 12px; cursor: pointer; font-size: 15px; font-weight: 600;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; transition: transform .1s, opacity .2s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { font-size: 11px; color: var(--muted); text-align: center; margin-top: 14px; line-height: 1.6; }
+
+  /* ---------- 聊天页 ---------- */
+  #app { display: none; flex-direction: column; height: 100%; }
+  #app.show { display: flex; }
+  header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    background: rgba(30,41,59,.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(148,163,184,.12);
+  }
+  header .room-info { flex: 1; min-width: 0; }
+  header .room-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .room-meta { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.off { background: var(--err); }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(148,163,184,.2);
+    background: rgba(15,23,42,.5); color: var(--text); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:active { transform: scale(.92); }
+
+  #messages {
+    flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+    overscroll-behavior: contain;
+  }
+  .msg { display: flex; flex-direction: column; max-width: 80%; animation: pop .18s ease; }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .msg.me { align-self: flex-end; align-items: flex-end; }
+  .msg.other { align-self: flex-start; align-items: flex-start; }
+  .msg .who { font-size: 11px; color: var(--muted); margin: 0 4px 4px; }
+  .msg .bubble {
+    padding: 9px 13px; border-radius: 16px; font-size: 15px; line-height: 1.45; word-break: break-word;
+    white-space: pre-wrap; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  .msg.me .bubble { background: var(--me); border-bottom-right-radius: 4px; color: #fff; }
+  .msg.other .bubble { background: var(--other); border-bottom-left-radius: 4px; }
+  .msg .time { font-size: 10px; color: var(--muted); margin: 4px 4px 0; }
+
+  /* 大 emoji 消息 */
+  .msg.emoji-only .bubble { background: transparent !important; box-shadow: none; padding: 0; font-size: 56px; line-height: 1.1; }
+  .msg.me.emoji-only { align-items: flex-end; }
+  .bubble .big-emoji { font-size: 32px; vertical-align: middle; }
+
+  .sys {
+    align-self: center; font-size: 12px; color: var(--muted); background: rgba(148,163,184,.1);
+    padding: 4px 12px; border-radius: 12px; margin: 4px 0;
+  }
+
+  /* ---------- 输入区 ---------- */
+  #composer {
+    display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px;
+    background: rgba(30,41,59,.7); backdrop-filter: blur(10px); border-top: 1px solid rgba(148,163,184,.12);
+    position: relative;
+  }
+  #emoji-btn { flex-shrink: 0; }
+  #text {
+    flex: 1; resize: none; max-height: 120px; min-height: 40px; padding: 10px 14px; border-radius: 20px;
+    border: 1px solid rgba(148,163,184,.2); background: rgba(15,23,42,.6); color: var(--text);
+    font-size: 15px; outline: none; line-height: 1.4; font-family: inherit;
+  }
+  #send {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #send:active { transform: scale(.9); }
+  #send:disabled { opacity: .4; }
+
+  /* ---------- emoji 面板 ---------- */
+  #emoji-panel {
+    display: none; position: absolute; bottom: 100%; left: 12px; right: 12px; max-height: 240px;
+    background: var(--panel); border: 1px solid rgba(148,163,184,.2); border-radius: 14px;
+    padding: 8px; overflow-y: auto; box-shadow: 0 -10px 30px rgba(0,0,0,.4); z-index: 10;
+  }
+  #emoji-panel.show { display: block; }
+  .emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 2px; }
+  .emoji-grid button {
+    background: none; border: none; cursor: pointer; font-size: 26px; padding: 6px; border-radius: 8px;
+    transition: background .15s;
+  }
+  .emoji-grid button:hover { background: rgba(148,163,184,.15); }
+  .emoji-cat { font-size: 11px; color: var(--muted); padding: 6px 4px 2px; }
+
+  /* 滚动条 */
+  #messages::-webkit-scrollbar, #emoji-panel::-webkit-scrollbar { width: 6px; }
+  #messages::-webkit-scrollbar-thumb, #emoji-panel::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- 入场页 -->
+<div id="gate">
+  <div class="card">
+    <h1>即时聊天室</h1>
+    <p class="sub">实时同步 · 多人在线 · 大表情</p>
+    <div class="field">
+      <label>你的昵称</label>
+      <input id="nick-input" maxlength="16" placeholder="取个名字吧" />
+    </div>
+    <div class="field">
+      <label>房间名</label>
+      <input id="room-input" maxlength="32" placeholder="输入相同房间名即可互通" value="lobby" />
+    </div>
+    <button class="btn" id="enter-btn">进入聊天</button>
+    <p class="hint">基于公共 MQTT 通道，请勿发送敏感信息。<br/>不同设备访问同一房间名即可实时通信。</p>
+  </div>
+</div>
+
+<!-- 聊天页 -->
+<div id="app">
+  <header>
+    <div class="room-info">
+      <div class="room-name" id="room-name">lobby</div>
+      <div class="room-meta"><span class="dot" id="status-dot"></span><span id="status-text">连接中…</span></div>
+    </div>
+    <button class="icon-btn" id="leave-btn" title="离开">✕</button>
+  </header>
+
+  <div id="messages"></div>
+
+  <div id="composer">
+    <div id="emoji-panel">
+      <div id="emoji-content"></div>
+    </div>
+    <button class="icon-btn" id="emoji-btn" title="表情">😀</button>
+    <textarea id="text" rows="1" placeholder="发条消息…"></textarea>
+    <button id="send" title="发送">➤</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ===== 配置 =====
+  // 公共 MQTT broker（WSS），任何人都可连接；同一房间 topic 即可互通
+  var BROKER_URL = "wss://broker.emqx.io:8084/mqtt";
+  var TOPIC_PREFIX = "trae-chat-v1/";   // 房间 topic 前缀
+
+  // ===== Emoji 集 =====
+  var EMOJI = {
+    "表情": "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😋 😛 😜 🤪 😝 🤗 🤭 🤫 🤔 🤐 😐 😑 😶 😏 😒 🙄 😬 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤮 🥵 🥶 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😢 😭 😱 😨 😰 😡 😠 🤬 😈 👿 💀 💩 🤡 👻 👽 🤖".split(" "),
+    "手势": "👍 👎 👊 ✊ 🤛 🤜 👏 🙌 👐 🤲 🙏 🤝 💪 👋 🤚 🖐 ✋ 🖖 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 👈 👉 👆 👇 ☝️ ✍️".split(" "),
+    "心情": "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 💯 🔥 ⭐ 🌟 ✨ ⚡ 💥 💢 💧 💦".split(" "),
+    "动物": "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦄 🐝 🦋 🐌 🐞 🐢 🐙 🦕 🦖 🐬 🐳 🐋".split(" "),
+    "食物": "🍎 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🍆 🥔 🥕 🌽 🌶 🥦 🍞 🧀 🥚 🍳 🥞 🍔 🍟 🍕 🌭 🍣 🍦 🍰 🍩 🍪 ☕ 🍺 🍷".split(" "),
+    "活动": "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🥅 🏒 🏑 🥍 🏏 ⛳ 🎯 🎮 🕹 🎲 🎰 🎳 🎪 🎭 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🎸 🎻 🏆 🥇 🎉 🎊 🎈 🎁".split(" "),
+    "旅行": "🚗 🚕 🚙 🚌 🏎 🚓 🚑 🚒 🚚 🚲 🛵 🏍 ✈️ 🚀 🛸 🚁 ⛵ 🚤 🛳 ⛴ 🚂 🚆 🚊 🚉 🗼 🗽 🗿 🏰 🏯 🎡 🎢 🏖 🏔 🌋 🏕 🌅 🌄 🌠".split(" "),
+    "物品": "💎 🔑 🔒 🔓 🛒 💰 💴 💵 💶 💷 💸 💳 🧲 🔫 💣 🧨 🪓 🔪 🗡 ⚔️ 🛡 🚬 ⛓ 🧷 🧹 🧺 🧻 📱 💻 ⌨️ 🖥 🖨 📷 🎥 📺 📡 ⏰ ⏳".split(" ")
+  };
+
+  // ===== 状态 =====
+  var client = null;
+  var nick = "";
+  var room = "";
+  var topic = "";
+  var connected = false;
+  var autoScroll = true;
+
+  // ===== DOM =====
+  var $ = function (id) { return document.getElementById(id); };
+  var gate = $("gate"), app = $("app");
+  var nickInput = $("nick-input"), roomInput = $("room-input"), enterBtn = $("enter-btn");
+  var roomName = $("room-name"), statusDot = $("status-dot"), statusText = $("status-text");
+  var leaveBtn = $("leave-btn");
+  var messagesEl = $("messages");
+  var textEl = $("text"), sendBtn = $("send");
+  var emojiBtn = $("emoji-btn"), emojiPanel = $("emoji-panel"), emojiContent = $("emoji-content");
+  var mqttLib = (typeof mqtt !== "undefined") ? mqtt : (window.mqtt || null);
+
+  // ===== 工具 =====
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function nowTime() {
+    var d = new Date();
+    function p(n) { return n < 10 ? "0" + n : n; }
+    return p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function isEmojiOnly(str) {
+    // 去除空白后，全是 emoji/符号字符
+    var s = str.replace(/\s/g, "");
+    if (!s) return false;
+    // 简单判定：每个字符都落在常见 emoji 区间或为变体选择符
+    var re = /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f)+$/u;
+    return re.test(s);
+  }
+  function renderEmoji(text) {
+    // 给所有 emoji 字符套 span 以便放大样式（保持文字小，emoji 大）
+    var re = /(\p{Extended_Pictographic}(\p{Emoji_Component}|\u200d|\ufe0f)*)/gu;
+    return esc(text).replace(re, '<span class="big-emoji">$1</span>');
+  }
+
+  // ===== 入场 =====
+  enterBtn.addEventListener("click", enter);
+  [nickInput, roomInput].forEach(function (el) {
+    el.addEventListener("keydown", function (e) { if (e.key === "Enter") enter(); });
+  });
+  function enter() {
+    nick = nickInput.value.trim() || "匿名";
+    room = roomInput.value.trim() || "lobby";
+    // topic 仅允许字母数字下划线中划线
+    var safeRoom = room.replace(/[^a-zA-Z0-9_\-]/g, "-").slice(0, 32) || "lobby";
+    topic = TOPIC_PREFIX + safeRoom;
+    roomName.textContent = room;
+    gate.style.display = "none";
+    app.classList.add("show");
+    connect();
+  }
+
+  // ===== MQTT 连接 =====
+  function connect() {
+    if (!mqttLib) {
+      setStatus(false, "MQTT 库加载失败");
+      addSys("MQTT 库加载失败，请检查网络后刷新。");
+      return;
+    }
+    setStatus(false, "连接中…");
+    var clientId = "trae-chat-" + Math.random().toString(36).slice(2, 10);
+    try {
+      client = mqttLib.connect(BROKER_URL, {
+        clientId: clientId,
+        clean: true,
+        reconnectPeriod: 3000,
+        connectTimeout: 8000,
+        keepalive: 30
+      });
+    } catch (e) {
+      setStatus(false, "连接失败");
+      addSys("连接失败：" + esc(e.message || String(e)));
+      return;
+    }
+
+    client.on("connect", function () {
+      connected = true;
+      setStatus(true, "已连接");
+      client.subscribe(topic, { qos: 0 }, function (err) {
+        if (err) { addSys("订阅房间失败"); }
+        else {
+          addSys("已进入房间「" + esc(room) + "」");
+          // 广播加入
+          publish({ type: "sys", text: nick + " 加入了房间", t: Date.now() });
+        }
+      });
+    });
+
+    client.on("reconnect", function () { setStatus(false, "重连中…"); });
+    client.on("close", function () { connected = false; setStatus(false, "已断开"); });
+    client.on("error", function (err) { setStatus(false, "错误"); addSys("连接错误：" + esc(err.message || String(err))); });
+
+    client.on("message", function (t, payload) {
+      try {
+        var msg = JSON.parse(payload.toString());
+        onMessage(msg);
+      } catch (e) { /* 忽略非法消息 */ }
+    });
+  }
+
+  function publish(msg) {
+    if (!client || !connected) return;
+    try { client.publish(topic, JSON.stringify(msg), { qos: 0 }); } catch (e) {}
+  }
+
+  function onMessage(msg) {
+    if (!msg || !msg.type) return;
+    if (msg.type === "sys") {
+      addSys(msg.text || "");
+    } else if (msg.type === "chat") {
+      // 自己发的也会收到（broker 回环），用 id 去重
+      if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
+      addChat(msg.nick || "匿名", msg.text || "", msg.t || Date.now(), false);
+    }
+  }
+
+  // ===== 发送 =====
+  var lastSentId = null;
+  function send() {
+    var text = textEl.value;
+    if (!text.trim() || !connected) return;
+    var id = Math.random().toString(36).slice(2, 10);
+    lastSentId = id;
+    var msg = { type: "chat", id: id, nick: nick, text: text, t: Date.now() };
+    publish(msg);
+    addChat(nick, text, msg.t, true);
+    textEl.value = "";
+    autoSize();
+    closeEmoji();
+  }
+  sendBtn.addEventListener("click", send);
+  textEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  textEl.addEventListener("input", autoSize);
+  function autoSize() {
+    textEl.style.height = "auto";
+    textEl.style.height = Math.min(120, textEl.scrollHeight) + "px";
+  }
+
+  // ===== 渲染消息 =====
+  function addChat(who, text, t, isMe) {
+    var wrap = document.createElement("div");
+    wrap.className = "msg " + (isMe ? "me" : "other");
+    var emojiOnly = isEmojiOnly(text);
+    if (emojiOnly) wrap.className += " emoji-only";
+
+    var whoEl = document.createElement("div");
+    whoEl.className = "who";
+    whoEl.textContent = isMe ? "我" : who;
+    wrap.appendChild(whoEl);
+
+    var bubble = document.createElement("div");
+    bubble.className = "bubble";
+    if (emojiOnly) {
+      bubble.textContent = text;   // 纯 emoji，直接放原字符，CSS 放大
+    } else {
+      bubble.innerHTML = renderEmoji(text);
+    }
+    wrap.appendChild(bubble);
+
+    var timeEl = document.createElement("div");
+    timeEl.className = "time";
+    timeEl.textContent = nowTime();
+    wrap.appendChild(timeEl);
+
+    messagesEl.appendChild(wrap);
+    maybeScroll();
+    // 限制消息数量，避免过长
+    while (messagesEl.children.length > 300) {
+      messagesEl.removeChild(messagesEl.firstChild);
+    }
+  }
+
+  function addSys(text) {
+    var el = document.createElement("div");
+    el.className = "sys";
+    el.textContent = text;
+    messagesEl.appendChild(el);
+    maybeScroll();
+  }
+
+  function maybeScroll() {
+    if (autoScroll) messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  messagesEl.addEventListener("scroll", function () {
+    var atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
+    autoScroll = atBottom;
+  });
+
+  function setStatus(on, text) {
+    statusDot.className = "dot " + (on ? "on" : "off");
+    statusText.textContent = text;
+    sendBtn.disabled = !on;
+  }
+
+  // ===== 离开 =====
+  leaveBtn.addEventListener("click", function () {
+    if (client && connected) {
+      try {
+        publish({ type: "sys", text: nick + " 离开了房间", t: Date.now() });
+        client.end(true);
+      } catch (e) {}
+    }
+    connected = false;
+    client = null;
+    app.classList.remove("show");
+    gate.style.display = "flex";
+    messagesEl.innerHTML = "";
+    setStatus(false, "未连接");
+  });
+
+  window.addEventListener("beforeunload", function () {
+    if (client && connected) {
+      try { publish({ type: "sys", text: nick + " 离开了房间", t: Date.now() }); client.end(true); } catch (e) {}
+    }
+  });
+
+  // ===== Emoji 面板 =====
+  function buildEmojiPanel() {
+    var html = "";
+    Object.keys(EMOJI).forEach(function (cat) {
+      html += '<div class="emoji-cat">' + esc(cat) + "</div>";
+      html += '<div class="emoji-grid">';
+      EMOJI[cat].forEach(function (e) {
+        html += '<button type="button" data-e="' + esc(e) + '">' + e + "</button>";
+      });
+      html += "</div>";
+    });
+    emojiContent.innerHTML = html;
+    emojiContent.addEventListener("click", function (ev) {
+      var b = ev.target.closest("button[data-e]");
+      if (!b) return;
+      insertAtCursor(textEl, b.getAttribute("data-e"));
+      textEl.focus();
+      autoSize();
+    });
+  }
+  function insertAtCursor(field, value) {
+    var s = field.selectionStart, e = field.selectionEnd;
+    field.value = field.value.slice(0, s) + value + field.value.slice(e);
+    field.selectionStart = field.selectionEnd = s + value.length;
+  }
+  emojiBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    emojiPanel.classList.toggle("show");
+  });
+  document.addEventListener("click", function (e) {
+    if (!emojiPanel.contains(e.target) && e.target !== emojiBtn) closeEmoji();
+  });
+  function closeEmoji() { emojiPanel.classList.remove("show"); }
+
+  buildEmojiPanel();
+  nickInput.focus();
+})();
+</script>
+</body>
+</html>
