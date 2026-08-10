@@ -174,10 +174,23 @@
     background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
     touch-action: none; max-width: 100%; max-height: 70vh;
   }
+  /* 画板 emoji 选择条 */
+  #board-emoji-bar {
+    display: none; width: 100%; max-width: 460px; max-height: 88px; overflow-x: auto; overflow-y: hidden;
+    background: var(--panel); border: 1px solid rgba(148,163,184,.2); border-radius: 12px;
+    padding: 6px 8px; margin-bottom: 10px; white-space: nowrap;
+  }
+  #board-emoji-bar.show { display: block; }
+  #board-emoji-bar .be-btn {
+    background: none; border: none; cursor: pointer; font-size: 26px; padding: 4px 6px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center; transition: background .15s;
+  }
+  #board-emoji-bar .be-btn:hover { background: rgba(148,163,184,.2); }
+  #board-emoji-bar .be-btn.active { background: var(--accent); }
 
   /* 滚动条 */
-  #messages::-webkit-scrollbar, #emoji-panel::-webkit-scrollbar { width: 6px; }
-  #messages::-webkit-scrollbar-thumb, #emoji-panel::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 3px; }
+  #messages::-webkit-scrollbar, #emoji-panel::-webkit-scrollbar, #board-emoji-bar::-webkit-scrollbar { width: 6px; height: 6px; }
+  #messages::-webkit-scrollbar-thumb, #emoji-panel::-webkit-scrollbar-thumb, #board-emoji-bar::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -251,6 +264,7 @@
       <button class="tool-btn" data-tool="rect" title="矩形">▭</button>
       <button class="tool-btn" data-tool="circle" title="圆形">○</button>
       <button class="tool-btn" data-tool="eraser" title="橡皮">🧽</button>
+      <button class="tool-btn" data-tool="emoji" title="放表情">😀</button>
     </div>
     <div class="board-spacer"></div>
     <button class="board-btn ghost" id="board-undo">撤销</button>
@@ -258,6 +272,7 @@
     <button class="board-btn send" id="board-send">发送</button>
     <button class="board-btn ghost" id="board-close">✕</button>
   </div>
+  <div id="board-emoji-bar"></div>
   <canvas id="board-canvas" width="400" height="400"></canvas>
 </div>
 
@@ -590,7 +605,27 @@
   }
   clearBoard();
 
-  var drawState = { drawing: false, tool: "pen", color: "#000000", size: 4, startX: 0, startY: 0, snapshot: null };
+  var drawState = { drawing: false, tool: "pen", color: "#000000", size: 4, startX: 0, startY: 0, snapshot: null, emojiChar: "😀" };
+
+  // 画板 emoji 选择条
+  var boardEmojiBar = $("board-emoji-bar");
+  var boardEmojiChars = EMOJI["表情"].concat(EMOJI["手势"], EMOJI["心情"]);
+  boardEmojiChars.forEach(function (ch, i) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "be-btn" + (i === 0 ? " active" : "");
+    btn.textContent = ch;
+    btn.addEventListener("click", function () {
+      drawState.emojiChar = ch;
+      Array.prototype.forEach.call(boardEmojiBar.querySelectorAll(".be-btn"), function (x) { x.classList.remove("active"); });
+      btn.classList.add("active");
+      Array.prototype.forEach.call($("board-tools").querySelectorAll(".tool-btn"), function (x) { x.classList.remove("active"); });
+      $("board-tools").querySelector('[data-tool="emoji"]').classList.add("active");
+      drawState.tool = "emoji";
+      boardEmojiBar.classList.add("show");
+    });
+    boardEmojiBar.appendChild(btn);
+  });
 
   function pushHistory() {
     try {
@@ -609,6 +644,8 @@
     Array.prototype.forEach.call($("board-tools").querySelectorAll(".tool-btn"), function (x) { x.classList.remove("active"); });
     b.classList.add("active");
     drawState.tool = b.getAttribute("data-tool");
+    if (drawState.tool === "emoji") boardEmojiBar.classList.add("show");
+    else boardEmojiBar.classList.remove("show");
   });
   $("board-colors").addEventListener("click", function (e) {
     var s = e.target.closest(".swatch");
@@ -635,9 +672,19 @@
   function startDraw(e) {
     e.preventDefault();
     var p = getPos(e);
+    pushHistory();
+    // emoji 工具：点击即放置，无需拖动
+    if (drawState.tool === "emoji") {
+      var sizeMap = { 4: 44, 8: 72, 14: 104 };
+      bctx.font = (sizeMap[drawState.size] || 48) + "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+      bctx.textAlign = "center";
+      bctx.textBaseline = "middle";
+      bctx.fillText(drawState.emojiChar || "😀", p.x, p.y);
+      drawState.drawing = false;
+      return;
+    }
     drawState.drawing = true;
     drawState.startX = p.x; drawState.startY = p.y;
-    pushHistory();
     if (drawState.tool === "line" || drawState.tool === "rect" || drawState.tool === "circle") {
       drawState.snapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
     }
