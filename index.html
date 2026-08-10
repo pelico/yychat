@@ -218,7 +218,7 @@
     </div>
     <div class="field">
       <label>房间名</label>
-      <input id="room-input" maxlength="32" placeholder="输入相同房间名即可互通" value="lobby" />
+      <input id="room-input" maxlength="32" placeholder="输入相同房间名即可互通" value="悠悠的聊天室" />
     </div>
     <button class="btn" id="enter-btn">进入聊天</button>
     <p class="hint">基于公共 MQTT 通道，请勿发送敏感信息。<br/>不同设备访问同一房间名即可实时通信。</p>
@@ -355,13 +355,20 @@
   }
 
   // ===== 入场 =====
+  // 回填已保存的昵称
+  try {
+    var savedNick = localStorage.getItem("yychat_nick");
+    if (savedNick) nickInput.value = savedNick;
+  } catch (e) {}
   enterBtn.addEventListener("click", enter);
   [nickInput, roomInput].forEach(function (el) {
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) enter(); });
   });
   function enter() {
     nick = nickInput.value.trim() || "匿名";
-    room = roomInput.value.trim() || "lobby";
+    room = roomInput.value.trim() || "悠悠的聊天室";
+    // 记住昵称到本地，刷新后自动回填
+    try { localStorage.setItem("yychat_nick", nick); } catch (e) {}
     // topic 仅允许字母数字下划线中划线
     var safeRoom = room.replace(/[^a-zA-Z0-9_\-]/g, "-").slice(0, 32) || "lobby";
     topic = TOPIC_PREFIX + safeRoom;
