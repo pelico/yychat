@@ -516,6 +516,8 @@
     el.textContent = text;
     el.style.fontSize = FLY_FS + "px";
     el.style.opacity = "0";
+    // 创建后立即定位到起点，避免首帧在 (0,0) 处闪现
+    el.style.transform = "translate(-50%,-50%) translate(" + startX + "px," + startY + "px) scale(0.6) rotate(0deg)";
     document.body.appendChild(el);
     flyingCount++;
 
@@ -620,10 +622,15 @@
 
     messagesEl.appendChild(wrap);
     maybeScroll();
-    // 延迟一帧再启动飞入，确保浏览器布局完成
+    // 延迟一帧再启动飞入，确保浏览器布局完成；失败则直接平滑弹出
     if (emojiOnly) {
       requestAnimationFrame(function () {
-        if (!flyEmoji(bubble, text, isMe)) bubble.style.opacity = "";
+        if (!flyEmoji(bubble, text, isMe)) {
+          bubble.style.opacity = "";
+          bubble.classList.remove("pop-in");
+          void bubble.offsetWidth;
+          bubble.classList.add("pop-in");
+        }
       });
     }
     // 限制消息数量，避免过长
