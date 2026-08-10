@@ -91,9 +91,12 @@
   .msg .time { font-size: 10px; color: var(--muted); margin: 4px 4px 0; }
 
   /* 大 emoji 消息 */
-  .msg.emoji-only .bubble { background: transparent !important; box-shadow: none; padding: 0; font-size: 56px; line-height: 1.1; }
+  .msg.emoji-only .bubble { background: transparent !important; box-shadow: none; padding: 0; font-size: 96px; line-height: 1.15; }
   .msg.me.emoji-only { align-items: flex-end; }
-  .bubble .big-emoji { font-size: 32px; vertical-align: middle; }
+  .bubble .big-emoji { font-size: 44px; vertical-align: middle; }
+
+  /* 图片消息（画板） */
+  .msg .bubble img { max-width: 220px; max-height: 240px; border-radius: 10px; display: block; }
 
   .sys {
     align-self: center; font-size: 12px; color: var(--muted); background: rgba(148,163,184,.1);
@@ -134,6 +137,43 @@
   }
   .emoji-grid button:hover { background: rgba(148,163,184,.15); }
   .emoji-cat { font-size: 11px; color: var(--muted); padding: 6px 4px 2px; }
+
+  /* ---------- 画板 ---------- */
+  #board {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 12px; flex-direction: column;
+  }
+  #board.show { display: flex; }
+  .board-bar {
+    width: 100%; max-width: 460px; background: var(--panel); border: 1px solid rgba(148,163,184,.2);
+    border-radius: 14px; padding: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  .board-group { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .board-label { font-size: 11px; color: var(--muted); margin-right: 2px; }
+  .swatch {
+    width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); cursor: pointer;
+    transition: transform .1s; flex-shrink: 0;
+  }
+  .swatch:active { transform: scale(.85); }
+  .swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+  .size-btn, .tool-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(148,163,184,.25);
+    background: rgba(15,23,42,.5); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .size-btn.active, .tool-btn.active { background: var(--accent); border-color: var(--accent); }
+  .size-btn .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: none; border: none; }
+  .board-spacer { flex: 1; }
+  .board-btn {
+    padding: 8px 12px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; flex-shrink: 0;
+  }
+  .board-btn.send { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; }
+  .board-btn.ghost { background: rgba(148,163,184,.15); color: var(--text); }
+  #board-canvas {
+    background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    touch-action: none; max-width: 100%; max-height: 70vh;
+  }
 
   /* 滚动条 */
   #messages::-webkit-scrollbar, #emoji-panel::-webkit-scrollbar { width: 6px; }
@@ -177,9 +217,48 @@
       <div id="emoji-content"></div>
     </div>
     <button class="icon-btn" id="emoji-btn" title="表情">😀</button>
+    <button class="icon-btn" id="board-btn" title="画板">🎨</button>
     <textarea id="text" rows="1" placeholder="发条消息…"></textarea>
     <button id="send" title="发送">➤</button>
   </div>
+</div>
+
+<!-- 画板 -->
+<div id="board">
+  <div class="board-bar">
+    <div class="board-group" id="board-colors">
+      <span class="board-label">颜色</span>
+      <span class="swatch active" data-color="#000000" style="background:#000"></span>
+      <span class="swatch" data-color="#ef4444" style="background:#ef4444"></span>
+      <span class="swatch" data-color="#f97316" style="background:#f97316"></span>
+      <span class="swatch" data-color="#eab308" style="background:#eab308"></span>
+      <span class="swatch" data-color="#22c55e" style="background:#22c55e"></span>
+      <span class="swatch" data-color="#06b6d4" style="background:#06b6d4"></span>
+      <span class="swatch" data-color="#3b82f6" style="background:#3b82f6"></span>
+      <span class="swatch" data-color="#a855f7" style="background:#a855f7"></span>
+      <span class="swatch" data-color="#ec4899" style="background:#ec4899"></span>
+    </div>
+    <div class="board-group" id="board-sizes">
+      <span class="board-label">粗细</span>
+      <button class="size-btn active" data-size="4" title="细"><span class="dot" style="width:6px;height:6px"></span></button>
+      <button class="size-btn" data-size="8" title="中"><span class="dot" style="width:10px;height:10px"></span></button>
+      <button class="size-btn" data-size="14" title="粗"><span class="dot" style="width:16px;height:16px"></span></button>
+    </div>
+    <div class="board-group" id="board-tools">
+      <span class="board-label">形状</span>
+      <button class="tool-btn active" data-tool="pen" title="自由画">✏️</button>
+      <button class="tool-btn" data-tool="line" title="直线">／</button>
+      <button class="tool-btn" data-tool="rect" title="矩形">▭</button>
+      <button class="tool-btn" data-tool="circle" title="圆形">○</button>
+      <button class="tool-btn" data-tool="eraser" title="橡皮">🧽</button>
+    </div>
+    <div class="board-spacer"></div>
+    <button class="board-btn ghost" id="board-undo">撤销</button>
+    <button class="board-btn ghost" id="board-clear">清空</button>
+    <button class="board-btn send" id="board-send">发送</button>
+    <button class="board-btn ghost" id="board-close">✕</button>
+  </div>
+  <canvas id="board-canvas" width="400" height="400"></canvas>
 </div>
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
@@ -326,6 +405,9 @@
       // 自己发的也会收到（broker 回环），用 id 去重
       if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
       addChat(msg.nick || "匿名", msg.text || "", msg.t || Date.now(), false);
+    } else if (msg.type === "image") {
+      if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
+      addImage(msg.nick || "匿名", msg.data || "", msg.t || Date.now(), false);
     }
   }
 
@@ -385,6 +467,31 @@
     messagesEl.appendChild(wrap);
     maybeScroll();
     // 限制消息数量，避免过长
+    while (messagesEl.children.length > 300) {
+      messagesEl.removeChild(messagesEl.firstChild);
+    }
+  }
+
+  function addImage(who, dataUrl, t, isMe) {
+    var wrap = document.createElement("div");
+    wrap.className = "msg " + (isMe ? "me" : "other");
+    var whoEl = document.createElement("div");
+    whoEl.className = "who";
+    whoEl.textContent = isMe ? "我" : who;
+    wrap.appendChild(whoEl);
+    var bubble = document.createElement("div");
+    bubble.className = "bubble";
+    var img = document.createElement("img");
+    img.src = dataUrl;
+    img.alt = "画板作品";
+    bubble.appendChild(img);
+    wrap.appendChild(bubble);
+    var timeEl = document.createElement("div");
+    timeEl.className = "time";
+    timeEl.textContent = nowTime();
+    wrap.appendChild(timeEl);
+    messagesEl.appendChild(wrap);
+    maybeScroll();
     while (messagesEl.children.length > 300) {
       messagesEl.removeChild(messagesEl.firstChild);
     }
@@ -469,6 +576,125 @@
   function closeEmoji() { emojiPanel.classList.remove("show"); }
 
   buildEmojiPanel();
+
+  // ===== 画板 =====
+  var board = $("board");
+  var boardBtn = $("board-btn");
+  var boardCanvas = $("board-canvas");
+  var bctx = boardCanvas.getContext("2d");
+  var boardHistory = [];
+
+  function clearBoard() {
+    bctx.fillStyle = "#ffffff";
+    bctx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
+  }
+  clearBoard();
+
+  var drawState = { drawing: false, tool: "pen", color: "#000000", size: 4, startX: 0, startY: 0, snapshot: null };
+
+  function pushHistory() {
+    try {
+      boardHistory.push(bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height));
+      if (boardHistory.length > 30) boardHistory.shift();
+    } catch (e) {}
+  }
+  function undoBoard() {
+    if (boardHistory.length === 0) return;
+    bctx.putImageData(boardHistory.pop(), 0, 0);
+  }
+
+  $("board-tools").addEventListener("click", function (e) {
+    var b = e.target.closest(".tool-btn");
+    if (!b) return;
+    Array.prototype.forEach.call($("board-tools").querySelectorAll(".tool-btn"), function (x) { x.classList.remove("active"); });
+    b.classList.add("active");
+    drawState.tool = b.getAttribute("data-tool");
+  });
+  $("board-colors").addEventListener("click", function (e) {
+    var s = e.target.closest(".swatch");
+    if (!s) return;
+    Array.prototype.forEach.call($("board-colors").querySelectorAll(".swatch"), function (x) { x.classList.remove("active"); });
+    s.classList.add("active");
+    drawState.color = s.getAttribute("data-color");
+  });
+  $("board-sizes").addEventListener("click", function (e) {
+    var b = e.target.closest(".size-btn");
+    if (!b) return;
+    Array.prototype.forEach.call($("board-sizes").querySelectorAll(".size-btn"), function (x) { x.classList.remove("active"); });
+    b.classList.add("active");
+    drawState.size = parseInt(b.getAttribute("data-size"), 10) || 4;
+  });
+
+  function getPos(e) {
+    var rect = boardCanvas.getBoundingClientRect();
+    var cx, cy;
+    if (e.touches && e.touches[0]) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+    else { cx = e.clientX; cy = e.clientY; }
+    return { x: (cx - rect.left) * (boardCanvas.width / rect.width), y: (cy - rect.top) * (boardCanvas.height / rect.height) };
+  }
+  function startDraw(e) {
+    e.preventDefault();
+    var p = getPos(e);
+    drawState.drawing = true;
+    drawState.startX = p.x; drawState.startY = p.y;
+    pushHistory();
+    if (drawState.tool === "line" || drawState.tool === "rect" || drawState.tool === "circle") {
+      drawState.snapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
+    }
+    if (drawState.tool === "pen" || drawState.tool === "eraser") {
+      bctx.beginPath();
+      bctx.moveTo(p.x, p.y);
+    }
+  }
+  function moveDraw(e) {
+    if (!drawState.drawing) return;
+    e.preventDefault();
+    var p = getPos(e);
+    bctx.lineCap = "round"; bctx.lineJoin = "round";
+    bctx.lineWidth = drawState.size;
+    bctx.strokeStyle = drawState.tool === "eraser" ? "#ffffff" : drawState.color;
+    if (drawState.tool === "pen" || drawState.tool === "eraser") {
+      bctx.lineTo(p.x, p.y); bctx.stroke();
+    } else if (drawState.snapshot) {
+      bctx.putImageData(drawState.snapshot, 0, 0);
+      bctx.beginPath();
+      if (drawState.tool === "line") { bctx.moveTo(drawState.startX, drawState.startY); bctx.lineTo(p.x, p.y); bctx.stroke(); }
+      else if (drawState.tool === "rect") { bctx.strokeRect(drawState.startX, drawState.startY, p.x - drawState.startX, p.y - drawState.startY); }
+      else if (drawState.tool === "circle") {
+        var dx = p.x - drawState.startX, dy = p.y - drawState.startY;
+        bctx.arc(drawState.startX, drawState.startY, Math.sqrt(dx * dx + dy * dy), 0, Math.PI * 2);
+        bctx.stroke();
+      }
+    }
+  }
+  function endDraw() { drawState.drawing = false; drawState.snapshot = null; }
+
+  boardCanvas.addEventListener("mousedown", startDraw);
+  boardCanvas.addEventListener("mousemove", moveDraw);
+  window.addEventListener("mouseup", endDraw);
+  boardCanvas.addEventListener("touchstart", startDraw, { passive: false });
+  boardCanvas.addEventListener("touchmove", moveDraw, { passive: false });
+  window.addEventListener("touchend", endDraw);
+
+  $("board-clear").addEventListener("click", function () { pushHistory(); clearBoard(); });
+  $("board-undo").addEventListener("click", undoBoard);
+  $("board-close").addEventListener("click", function () { board.classList.remove("show"); });
+  boardBtn.addEventListener("click", function () { board.classList.add("show"); });
+
+  $("board-send").addEventListener("click", function () {
+    if (!connected) { addSys("未连接，无法发送"); return; }
+    var dataUrl = boardCanvas.toDataURL("image/jpeg", 0.7);
+    if (dataUrl.length > 120000) dataUrl = boardCanvas.toDataURL("image/jpeg", 0.45);
+    var id = Math.random().toString(36).slice(2, 10);
+    lastSentId = id;
+    var msg = { type: "image", id: id, nick: nick, data: dataUrl, t: Date.now() };
+    publish(msg);
+    addImage(nick, dataUrl, msg.t, true);
+    board.classList.remove("show");
+    clearBoard();
+    boardHistory.length = 0;
+  });
+
   nickInput.focus();
 })();
 </script>
