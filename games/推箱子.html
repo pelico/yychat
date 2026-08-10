@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>推箱子</title>
+<meta name="game-icon" content="📦">
+<meta name="game-desc" content="把箱子推到目标">
+<meta name="game-tag" content="益智">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.game-header {
+    display: flex;
+    align-items: center;
+    gap: min(4vw, 24px);
+    margin-bottom: min(2vh, 12px);
+    font-size: clamp(14px, 2.5vw, 20px);
+}
+
+.game-header span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.game-header .val {
+    color: #4ecca3;
+    font-weight: bold;
+    min-width: 2em;
+    text-align: center;
+}
+
+#game-canvas {
+    border: 2px solid #4ecca3;
+    border-radius: 8px;
+    background: #16213e;
+    max-width: 90vw;
+    max-height: 65vh;
+    touch-action: none;
+}
+
+/* 覆盖层 */
+.overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.78);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h2 {
+    font-size: clamp(24px, 5vw, 42px);
+    margin-bottom: 12px;
+    color: #4ecca3;
+}
+
+.overlay .sub {
+    font-size: clamp(13px, 2.2vw, 18px);
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 8px;
+    text-align: center;
+    max-width: 80vw;
+    line-height: 1.5;
+}
+
+.diff-row {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.diff-btn {
+    padding: clamp(8px, 1.5vw, 14px) clamp(16px, 3vw, 32px);
+    border: 2px solid #4ecca3;
+    border-radius: 12px;
+    background: rgba(78, 204, 163, 0.1);
+    color: #4ecca3;
+    font-size: clamp(14px, 2.5vw, 20px);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.diff-btn:hover, .diff-btn.active {
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.overlay .hint {
+    font-size: clamp(12px, 2vw, 16px);
+    color: rgba(255,255,255,0.5);
+    margin-top: 16px;
+}
+
+.win-text {
+    font-size: clamp(18px, 3.5vw, 30px);
+    color: #ffd700;
+    margin-bottom: 8px;
+}
+
+/* 触控方向键 */
+.touch-controls {
+    display: none;
+    margin-top: min(2vh, 12px);
+}
+
+.touch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, clamp(52px, 12vw, 72px));
+    grid-template-rows: repeat(3, clamp(52px, 12vw, 72px));
+    gap: 4px;
+}
+
+.ctrl-btn {
+    min-width: 44px;
+    min-height: 44px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: clamp(20px, 5vw, 32px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctrl-btn:active {
+    background: rgba(78, 204, 163, 0.3);
+    border-color: #4ecca3;
+}
+
+.ctrl-placeholder { visibility: hidden; }
+
+@media (pointer: coarse) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="game-header">
+    <span>关卡: <span class="val" id="levelNum">1</span></span>
+    <span>步数: <span class="val" id="moveCount">0</span></span>
+    <span>推: <span class="val" id="pushCount">0</span></span>
+</div>
+
+<canvas id="game-canvas"></canvas>
+
+<div class="touch-controls">
+    <div class="touch-grid">
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="up">&#9650;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="left">&#9664;</button>
+        <button class="ctrl-btn" data-dir="reset" style="font-size:clamp(14px,3vw,22px);">↺</button>
+        <button class="ctrl-btn" data-dir="right">&#9654;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="down">&#9660;</button>
+        <div class="ctrl-placeholder"></div>
+    </div>
+</div>
+
+<!-- 开始界面 -->
+<div class="overlay" id="startOverlay">
+    <h2>推箱子</h2>
+    <div class="sub">把箱子推到目标位置<br>方向键移动，空格暂停</div>
+    <div class="diff-row">
+        <button class="diff-btn active" data-diff="easy">简单</button>
+        <button class="diff-btn" data-diff="medium">普通</button>
+        <button class="diff-btn" data-diff="hard">困难</button>
+    </div>
+    <div class="hint">按 回车 开始</div>
+</div>
+
+<!-- 暂停 -->
+<div class="overlay hidden" id="pauseOverlay">
+    <h2>暂停中</h2>
+    <div class="hint">按 空格 继续</div>
+</div>
+
+<!-- 过关 -->
+<div class="overlay hidden" id="winOverlay">
+    <h2>过关！</h2>
+    <div class="win-text" id="winStats"></div>
+    <div class="hint">按 回车 下一关</div>
+</div>
+
+<!-- 全部通关 -->
+<div class="overlay hidden" id="allClearOverlay">
+    <h2>全部通关！</h2>
+    <div class="sub">你太厉害了！</div>
+    <div class="hint">按 回车 重新开始</div>
+</div>
+
+<script>
+(function() {
+    var canvas = document.getElementById('game-canvas');
+    var ctx = canvas.getContext('2d');
+    var levelNumEl = document.getElementById('levelNum');
+    var moveCountEl = document.getElementById('moveCount');
+    var pushCountEl = document.getElementById('pushCount');
+    var startOverlay = document.getElementById('startOverlay');
+    var pauseOverlay = document.getElementById('pauseOverlay');
+    var winOverlay = document.getElementById('winOverlay');
+    var allClearOverlay = document.getElementById('allClearOverlay');
+    var winStats = document.getElementById('winStats');
+
+    // 关卡数据: #墙 .目标 $箱子 @玩家 +玩家在目标 *箱子在目标 空格=地板
+    var levelsEasy = [
+        [
+            "#####",
+            "#.  #",
+            "# $ #",
+            "# @ #",
+            "#####"
+        ],
+        [
+            "######",
+            "#    #",
+            "# .$ #",
+            "# @  #",
+            "######"
+        ],
+        [
+            "######",
+            "#  . #",
+            "# $$ #",
+            "# @  #",
+            "######"
+        ],
+        [
+            "#######",
+            "#  .  #",
+            "# $$$ #",
+            "#  @  #",
+            "#######"
+        ],
+        [
+            "#######",
+            "#..   #",
+            "# $$  #",
+            "#  @  #",
+            "#######"
+        ]
+    ];
+
+    var levelsMedium = [
+        [
+            "######",
+            "#. # #",
+            "# $$ #",
+            "# @  #",
+            "######"
+        ],
+        [
+            "#######",
+            "#  .  #",
+            "# #$.##",
+            "#  $  #",
+            "## @ ##",
+            " ##### "
+        ],
+        [
+            "#######",
+            "#..#  #",
+            "# $$  #",
+            "#  #  #",
+            "#  @  #",
+            "#######"
+        ],
+        [
+            "########",
+            "#  .   #",
+            "# #### #",
+            "#  $$  #",
+            "## @  ##",
+            " ######"
+        ],
+        [
+            "########",
+            "#..    #",
+            "#  $$  #",
+            "## ## ##",
+            "#   @  #",
+            "########"
+        ]
+    ];
+
+    var levelsHard = [
+        [
+            "########",
+            "#   .  #",
+            "# #$## #",
+            "#  $   #",
+            "## #  ##",
+            " # @ # ",
+            " #####"
+        ],
+        [
+            " ########",
+            " #  . . #",
+            "## $$ $ #",
+            "#   #  ##",
+            "# @  ### ",
+            "######   "
+        ],
+        [
+            "#########",
+            "#   .   #",
+            "# #$$$# #",
+            "#   .   #",
+            "## @ ####",
+            " ####"
+        ],
+        [
+            "  ######",
+            "###    #",
+            "#. $ # #",
+            "#.  $  #",
+            "#  $#  #",
+            "### @ ##",
+            "  ####"
+        ],
+        [
+            "##########",
+            "#   #  . #",
+            "# # $$ # #",
+            "#  .  $  #",
+            "## ###  ##",
+            " #  @  # ",
+            " ########"
+        ]
+    ];
+
+    var difficulty = 'easy';
+    var currentLevels = levelsEasy;
+    var currentLevelIndex = 0;
+    var grid = [];
+    var playerPos = { r: 0, c: 0 };
+    var targets = [];
+    var moves = 0;
+    var pushes = 0;
+    var paused = false;
+    var playing = false;
+    var cellSize = 0;
+    var gridRows = 0;
+    var gridCols = 0;
+
+    // 难度选择
+    var diffBtns = document.querySelectorAll('.diff-btn');
+    diffBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            diffBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            difficulty = btn.dataset.diff;
+        });
+    });
+
+    function parseLevel(levelData) {
+        grid = [];
+        targets = [];
+        var maxLen = 0;
+        for (var i = 0; i < levelData.length; i++) {
+            if (levelData[i].length > maxLen) maxLen = levelData[i].length;
+        }
+        gridRows = levelData.length;
+        gridCols = maxLen;
+
+        for (var r = 0; r < gridRows; r++) {
+            var row = [];
+            for (var c = 0; c < gridCols; c++) {
+                var ch = c < levelData[r].length ? levelData[r][c] : ' ';
+                switch(ch) {
+                    case '#': row.push(1); break; // 墙
+                    case '.': row.push(2); targets.push({r:r, c:c}); break; // 目标
+                    case '$': row.push(3); break; // 箱子
+                    case '@': row.push(4); playerPos = {r:r, c:c}; row[0] = 0; break; // 玩家
+                    case '+': row.push(5); targets.push({r:r, c:c}); playerPos = {r:r, c:c}; break; // 玩家在目标
+                    case '*': row.push(6); targets.push({r:r, c:c}); break; // 箱子在目标
+                    default: row.push(0); break; // 地板
+                }
+            }
+            grid.push(row);
+        }
+        // 修正：玩家位置需要单独处理
+        for (var r = 0; r < gridRows; r++) {
+            for (var c = 0; c < gridCols; c++) {
+                if (levelData[r] && c < levelData[r].length) {
+                    var ch = levelData[r][c];
+                    if (ch === '@') {
+                        playerPos = {r:r, c:c};
+                        grid[r][c] = 0; // 地板
+                    } else if (ch === '+') {
+                        playerPos = {r:r, c:c};
+                        grid[r][c] = 2; // 目标
+                    }
+                }
+            }
+        }
+    }
+
+    function calcCellSize() {
+        var maxW = window.innerWidth * 0.88;
+        var maxH = window.innerHeight * 0.62;
+        cellSize = Math.floor(Math.min(maxW / gridCols, maxH / gridRows));
+        cellSize = Math.max(cellSize, 28);
+        canvas.width = cellSize * gridCols;
+        canvas.height = cellSize * gridRows;
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (var r = 0; r < gridRows; r++) {
+            for (var c = 0; c < gridCols; c++) {
+                var x = c * cellSize;
+                var y = r * cellSize;
+                var val = grid[r][c];
+
+                // 地板
+                if (val !== 1) {
+                    ctx.fillStyle = '#1e2d4a';
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+                    ctx.strokeRect(x, y, cellSize, cellSize);
+                }
+
+                // 墙
+                if (val === 1) {
+                    ctx.fillStyle = '#3a4a6b';
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = '#4a5a7b';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                }
+
+                // 目标
+                if (val === 2 || val === 5) {
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2, y + cellSize/2, cellSize * 0.2, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(231, 76, 60, 0.5)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // 箱子
+                if (val === 3 || val === 6) {
+                    var pad = cellSize * 0.12;
+                    var isOnTarget = val === 6;
+                    ctx.fillStyle = isOnTarget ? '#4ecca3' : '#e67e22';
+                    ctx.beginPath();
+                    ctx.roundRect(x + pad, y + pad, cellSize - pad*2, cellSize - pad*2, cellSize * 0.15);
+                    ctx.fill();
+                    ctx.strokeStyle = isOnTarget ? '#2ecc71' : '#d35400';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    // 箱子上的 X 标记
+                    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x + pad + 4, y + pad + 4);
+                    ctx.lineTo(x + cellSize - pad - 4, y + cellSize - pad - 4);
+                    ctx.moveTo(x + cellSize - pad - 4, y + pad + 4);
+                    ctx.lineTo(x + pad + 4, y + cellSize - pad - 4);
+                    ctx.stroke();
+                }
+
+                // 玩家
+                if (r === playerPos.r && c === playerPos.c) {
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2, y + cellSize/2, cellSize * 0.35, 0, Math.PI * 2);
+                    ctx.fillStyle = '#4ecca3';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    // 眼睛
+                    var eyeSize = cellSize * 0.06;
+                    var eyeOffX = cellSize * 0.12;
+                    var eyeOffY = cellSize * 0.06;
+                    ctx.fillStyle = '#1a1a2e';
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2 - eyeOffX, y + cellSize/2 - eyeOffY, eyeSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2 + eyeOffX, y + cellSize/2 - eyeOffY, eyeSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 微笑
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2, y + cellSize/2 + cellSize * 0.02, cellSize * 0.15, 0.1 * Math.PI, 0.9 * Math.PI);
+                    ctx.strokeStyle = '#1a1a2e';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
+    function isTarget(r, c) {
+        for (var i = 0; i < targets.length; i++) {
+            if (targets[i].r === r && targets[i].c === c) return true;
+        }
+        return false;
+    }
+
+    function getCellVal(r, c) {
+        if (r === playerPos.r && c === playerPos.c) return 4; // 玩家
+        return grid[r][c];
+    }
+
+    function tryMove(dr, dc) {
+        var nr = playerPos.r + dr;
+        var nc = playerPos.c + dc;
+
+        if (nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols) return false;
+        if (grid[nr][nc] === 1) return false; // 墙
+
+        // 箱子
+        if (grid[nr][nc] === 3 || grid[nr][nc] === 6) {
+            var boxNr = nr + dr;
+            var boxNc = nc + dc;
+            if (boxNr < 0 || boxNr >= gridRows || boxNc < 0 || boxNc >= gridCols) return false;
+            if (grid[boxNr][boxNc] === 1) return false; // 墙
+            if (grid[boxNr][boxNc] === 3 || grid[boxNr][boxNc] === 6) return false; // 另一个箱子
+
+            // 推箱子
+            grid[boxNr][boxNc] = isTarget(boxNr, boxNc) ? 6 : 3;
+            grid[nr][nc] = isTarget(nr, nc) ? 2 : 0;
+            pushes++;
+            pushCountEl.textContent = pushes;
+        }
+
+        playerPos.r = nr;
+        playerPos.c = nc;
+        moves++;
+        moveCountEl.textContent = moves;
+        draw();
+        checkWin();
+        return true;
+    }
+
+    function checkWin() {
+        // 所有目标位置都有箱子
+        for (var i = 0; i < targets.length; i++) {
+            var t = targets[i];
+            if (grid[t.r][t.c] !== 6) return; // 没有箱子在目标上
+        }
+        // 赢了
+        playing = false;
+        winStats.textContent = moves + ' 步，推了 ' + pushes + ' 次';
+        winOverlay.classList.remove('hidden');
+    }
+
+    function loadLevel() {
+        var levels = currentLevels;
+        if (currentLevelIndex >= levels.length) {
+            allClearOverlay.classList.remove('hidden');
+            return;
+        }
+        parseLevel(levels[currentLevelIndex]);
+        calcCellSize();
+        moves = 0;
+        pushes = 0;
+        moveCountEl.textContent = '0';
+        pushCountEl.textContent = '0';
+        levelNumEl.textContent = currentLevelIndex + 1;
+        draw();
+    }
+
+    function startGame() {
+        startOverlay.classList.add('hidden');
+        pauseOverlay.classList.add('hidden');
+        winOverlay.classList.add('hidden');
+        allClearOverlay.classList.add('hidden');
+        paused = false;
+        playing = true;
+
+        currentLevels = difficulty === 'easy' ? levelsEasy :
+                        difficulty === 'medium' ? levelsMedium : levelsHard;
+        currentLevelIndex = 0;
+        loadLevel();
+    }
+
+    function nextLevel() {
+        winOverlay.classList.add('hidden');
+        currentLevelIndex++;
+        playing = true;
+        loadLevel();
+    }
+
+    function resetLevel() {
+        if (!playing) return;
+        loadLevel();
+    }
+
+    function togglePause() {
+        if (!playing) return;
+        if (paused) {
+            paused = false;
+            pauseOverlay.classList.add('hidden');
+        } else {
+            paused = true;
+            pauseOverlay.classList.remove('hidden');
+        }
+    }
+
+    // 键盘
+    document.addEventListener('keydown', function(e) {
+        var key = e.key;
+
+        if (key === 'Enter') {
+            e.preventDefault();
+            if (!playing) {
+                if (!allClearOverlay.classList.contains('hidden')) {
+                    startGame();
+                } else if (!winOverlay.classList.contains('hidden')) {
+                    nextLevel();
+                } else {
+                    startGame();
+                }
+            }
+            return;
+        }
+
+        if (key === ' ' || key === 'Space') {
+            e.preventDefault();
+            if (playing) togglePause();
+            return;
+        }
+
+        if (key === 'r' || key === 'R') {
+            e.preventDefault();
+            resetLevel();
+            return;
+        }
+
+        if (!playing || paused) return;
+
+        var dirMap = {
+            'ArrowUp': [-1, 0], 'ArrowDown': [1, 0],
+            'ArrowLeft': [0, -1], 'ArrowRight': [0, 1]
+        };
+        if (dirMap[key]) {
+            e.preventDefault();
+            tryMove(dirMap[key][0], dirMap[key][1]);
+        }
+    });
+
+    // 触控
+    document.querySelectorAll('.ctrl-btn[data-dir]').forEach(function(btn) {
+        function handleDir() {
+            if (!playing || paused) return;
+            var dir = btn.dataset.dir;
+            if (dir === 'reset') { resetLevel(); return; }
+            var map = { up: [-1,0], down: [1,0], left: [0,-1], right: [0,1] };
+            if (map[dir]) tryMove(map[dir][0], map[dir][1]);
+        }
+        btn.addEventListener('touchstart', function(e) { e.preventDefault(); handleDir(); });
+        btn.addEventListener('click', function(e) { e.preventDefault(); handleDir(); });
+    });
+
+    // 窗口大小变化
+    window.addEventListener('resize', function() {
+        if (playing && !paused) {
+            calcCellSize();
+            draw();
+        }
+    });
+
+    // roundRect polyfill
+    if (!ctx.roundRect) {
+        ctx.roundRect = function(x, y, w, h, r) {
+            if (typeof r === 'number') r = [r, r, r, r];
+            ctx.beginPath();
+            ctx.moveTo(x + r[0], y);
+            ctx.lineTo(x + w - r[1], y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r[1]);
+            ctx.lineTo(x + w, y + h - r[2]);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h);
+            ctx.lineTo(x + r[3], y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r[3]);
+            ctx.lineTo(x, y + r[0]);
+            ctx.quadraticCurveTo(x, y, x + r[0], y);
+            ctx.closePath();
+        };
+    }
+})();
+</script>
+</body>
+</html>

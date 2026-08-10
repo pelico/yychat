@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>儿童数独</title>
+<meta name="game-icon" content="📊">
+<meta name="game-desc" content="4×4简化版数独">
+<meta name="game-tag" content="数学">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.game-header {
+    display: flex;
+    align-items: center;
+    gap: min(4vw, 24px);
+    margin-bottom: min(2vh, 12px);
+    font-size: clamp(14px, 2.5vw, 20px);
+}
+
+.game-header span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.game-header .val {
+    color: #4ecca3;
+    font-weight: bold;
+    min-width: 2em;
+    text-align: center;
+}
+
+#sudoku-board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    width: min(70vw, 55vh);
+    height: min(70vw, 55vh);
+    border: 3px solid #4ecca3;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.cell {
+    width: 25%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(22px, 5vw, 42px);
+    font-weight: bold;
+    background: #16213e;
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+}
+
+/* 2x2 宫格边框加粗 */
+.cell[data-row="0"][data-col="1"] { border-right: 2px solid #4ecca3; }
+.cell[data-row="0"][data-col="2"] { border-left: 2px solid #4ecca3; }
+.cell[data-row="1"][data-col="1"] { border-right: 2px solid #4ecca3; border-bottom: 2px solid #4ecca3; }
+.cell[data-row="1"][data-col="2"] { border-left: 2px solid #4ecca3; border-bottom: 2px solid #4ecca3; }
+.cell[data-row="2"][data-col="1"] { border-right: 2px solid #4ecca3; }
+.cell[data-row="2"][data-col="2"] { border-left: 2px solid #4ecca3; }
+.cell[data-row="3"][data-col="1"] { border-right: 2px solid #4ecca3; }
+.cell[data-row="3"][data-col="2"] { border-left: 2px solid #4ecca3; }
+
+.cell.given {
+    color: #4ecca3;
+    background: rgba(78, 204, 163, 0.08);
+}
+
+.cell.selected {
+    background: rgba(78, 204, 163, 0.25);
+    box-shadow: inset 0 0 0 2px #4ecca3;
+}
+
+.cell.filled {
+    color: #ffd700;
+}
+
+.cell.error {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.15);
+}
+
+.cell.hint-cell {
+    animation: hintPulse 0.6s ease;
+}
+
+@keyframes hintPulse {
+    0%, 100% { background: rgba(78, 204, 163, 0.08); }
+    50% { background: rgba(78, 204, 163, 0.4); }
+}
+
+/* 数字选择面板 */
+.num-pad {
+    display: flex;
+    gap: clamp(8px, 2vw, 16px);
+    margin-top: min(3vh, 16px);
+}
+
+.num-btn {
+    width: clamp(48px, 10vw, 72px);
+    height: clamp(48px, 10vw, 72px);
+    border: 2px solid rgba(78, 204, 163, 0.4);
+    border-radius: 12px;
+    background: rgba(78, 204, 163, 0.08);
+    color: #4ecca3;
+    font-size: clamp(20px, 4.5vw, 36px);
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.num-btn:hover, .num-btn:active {
+    background: #4ecca3;
+    color: #1a1a2e;
+}
+
+.num-btn.erase-btn {
+    border-color: rgba(231, 76, 60, 0.4);
+    color: #e74c3c;
+    font-size: clamp(14px, 3vw, 22px);
+}
+
+.num-btn.erase-btn:hover, .num-btn.erase-btn:active {
+    background: #e74c3c;
+    color: #fff;
+}
+
+/* 覆盖层 */
+.overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.78);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h2 {
+    font-size: clamp(24px, 5vw, 42px);
+    margin-bottom: 12px;
+    color: #4ecca3;
+}
+
+.overlay .sub {
+    font-size: clamp(13px, 2.2vw, 18px);
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 8px;
+    text-align: center;
+    max-width: 80vw;
+    line-height: 1.5;
+}
+
+.diff-row {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.diff-btn {
+    padding: clamp(8px, 1.5vw, 14px) clamp(16px, 3vw, 32px);
+    border: 2px solid #4ecca3;
+    border-radius: 12px;
+    background: rgba(78, 204, 163, 0.1);
+    color: #4ecca3;
+    font-size: clamp(14px, 2.5vw, 20px);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.diff-btn:hover, .diff-btn.active {
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.overlay .hint {
+    font-size: clamp(12px, 2vw, 16px);
+    color: rgba(255,255,255,0.5);
+    margin-top: 16px;
+}
+
+.win-text {
+    font-size: clamp(18px, 3.5vw, 30px);
+    color: #ffd700;
+    margin-bottom: 8px;
+}
+
+/* 触控方向键 */
+.touch-controls {
+    display: none;
+    margin-top: min(2vh, 12px);
+}
+
+.touch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, clamp(48px, 10vw, 64px));
+    grid-template-rows: repeat(3, clamp(48px, 10vw, 64px));
+    gap: 4px;
+}
+
+.ctrl-btn {
+    min-width: 44px;
+    min-height: 44px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: clamp(18px, 4vw, 28px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctrl-btn:active {
+    background: rgba(78, 204, 163, 0.3);
+    border-color: #4ecca3;
+}
+
+.ctrl-placeholder { visibility: hidden; }
+
+@media (pointer: coarse) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="game-header">
+    <span>错误: <span class="val" id="errorCount">0</span>/3</span>
+    <span>时间: <span class="val" id="timer">0:00</span></span>
+</div>
+
+<div id="sudoku-board"></div>
+
+<div class="num-pad" id="numPad">
+    <button class="num-btn" data-num="1">1</button>
+    <button class="num-btn" data-num="2">2</button>
+    <button class="num-btn" data-num="3">3</button>
+    <button class="num-btn" data-num="4">4</button>
+    <button class="num-btn erase-btn" data-num="0">✕</button>
+</div>
+
+<div class="touch-controls">
+    <div class="touch-grid">
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="up">&#9650;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="left">&#9664;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="right">&#9654;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="down">&#9660;</button>
+        <div class="ctrl-placeholder"></div>
+    </div>
+</div>
+
+<!-- 开始界面 -->
+<div class="overlay" id="startOverlay">
+    <h2>儿童数独</h2>
+    <div class="sub">在 4×4 格子里填 1~4<br>每行、每列、每个 2×2 宫格不能重复</div>
+    <div class="diff-row">
+        <button class="diff-btn active" data-diff="easy">简单</button>
+        <button class="diff-btn" data-diff="medium">普通</button>
+        <button class="diff-btn" data-diff="hard">困难</button>
+    </div>
+    <div class="hint">按 回车 开始</div>
+</div>
+
+<!-- 暂停 -->
+<div class="overlay hidden" id="pauseOverlay">
+    <h2>暂停中</h2>
+    <div class="hint">按 空格 继续</div>
+</div>
+
+<!-- 胜利 -->
+<div class="overlay hidden" id="winOverlay">
+    <h2>太棒了！</h2>
+    <div class="win-text" id="winStats"></div>
+    <div class="hint">按 回车 再来一局</div>
+</div>
+
+<!-- 失败 -->
+<div class="overlay hidden" id="loseOverlay">
+    <h2>错误太多了</h2>
+    <div class="sub">别灰心，再试一次吧！</div>
+    <div class="hint">按 回车 重新开始</div>
+</div>
+
+<script>
+(function() {
+    var boardEl = document.getElementById('sudoku-board');
+    var errorCountEl = document.getElementById('errorCount');
+    var timerEl = document.getElementById('timer');
+    var startOverlay = document.getElementById('startOverlay');
+    var pauseOverlay = document.getElementById('pauseOverlay');
+    var winOverlay = document.getElementById('winOverlay');
+    var loseOverlay = document.getElementById('loseOverlay');
+    var winStats = document.getElementById('winStats');
+
+    var difficulty = 'easy';
+    var solution = [];
+    var puzzle = [];
+    var playerBoard = [];
+    var givenCells = [];
+    var selectedCell = -1;
+    var errors = 0;
+    var maxErrors = 3;
+    var seconds = 0;
+    var timerInterval = null;
+    var paused = false;
+    var playing = false;
+
+    // 难度选择
+    var diffBtns = document.querySelectorAll('.diff-btn');
+    diffBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            diffBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            difficulty = btn.dataset.diff;
+        });
+    });
+
+    function formatTime(s) {
+        var m = Math.floor(s / 60);
+        var sec = s % 60;
+        return m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    function startTimer() {
+        stopTimer();
+        seconds = 0;
+        timerEl.textContent = '0:00';
+        timerInterval = setInterval(function() {
+            seconds++;
+            timerEl.textContent = formatTime(seconds);
+        }, 1000);
+    }
+
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    // 生成有效 4x4 数独
+    function generateSolution() {
+        var grid = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+
+        function isValid(grid, row, col, num) {
+            for (var i = 0; i < 4; i++) {
+                if (grid[row][i] === num) return false;
+                if (grid[i][col] === num) return false;
+            }
+            var boxRow = Math.floor(row / 2) * 2;
+            var boxCol = Math.floor(col / 2) * 2;
+            for (var r = boxRow; r < boxRow + 2; r++) {
+                for (var c = boxCol; c < boxCol + 2; c++) {
+                    if (grid[r][c] === num) return false;
+                }
+            }
+            return true;
+        }
+
+        function fill(grid) {
+            for (var r = 0; r < 4; r++) {
+                for (var c = 0; c < 4; c++) {
+                    if (grid[r][c] === 0) {
+                        var nums = [1, 2, 3, 4];
+                        // 随机打乱
+                        for (var i = nums.length - 1; i > 0; i--) {
+                            var j = Math.floor(Math.random() * (i + 1));
+                            var tmp = nums[i]; nums[i] = nums[j]; nums[j] = tmp;
+                        }
+                        for (var k = 0; k < nums.length; k++) {
+                            if (isValid(grid, r, c, nums[k])) {
+                                grid[r][c] = nums[k];
+                                if (fill(grid)) return true;
+                                grid[r][c] = 0;
+                            }
+                        }
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        fill(grid);
+        return grid;
+    }
+
+    function generatePuzzle(solution, diff) {
+        var removeCount = diff === 'easy' ? 6 : diff === 'medium' ? 8 : 10;
+        var puzzle = solution.map(function(row) { return row.slice(); });
+        var positions = [];
+        for (var i = 0; i < 16; i++) positions.push(i);
+        // 随机打乱位置
+        for (var i = positions.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = positions[i]; positions[i] = positions[j]; positions[j] = tmp;
+        }
+
+        var removed = 0;
+        for (var i = 0; i < positions.length && removed < removeCount; i++) {
+            var r = Math.floor(positions[i] / 4);
+            var c = positions[i] % 4;
+            puzzle[r][c] = 0;
+            removed++;
+        }
+        return puzzle;
+    }
+
+    function render() {
+        boardEl.innerHTML = '';
+        for (var r = 0; r < 4; r++) {
+            for (var c = 0; c < 4; c++) {
+                var idx = r * 4 + c;
+                var cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+                cell.dataset.index = idx;
+
+                if (givenCells[idx]) {
+                    cell.classList.add('given');
+                    cell.textContent = puzzle[r][c];
+                } else if (playerBoard[r][c] !== 0) {
+                    cell.textContent = playerBoard[r][c];
+                    cell.classList.add('filled');
+                    // 检查是否与答案冲突
+                    if (playerBoard[r][c] !== solution[r][c]) {
+                        cell.classList.add('error');
+                    }
+                }
+
+                if (idx === selectedCell) {
+                    cell.classList.add('selected');
+                }
+
+                cell.addEventListener('click', function() {
+                    if (!playing || paused) return;
+                    var i = parseInt(this.dataset.index);
+                    if (givenCells[i]) return;
+                    selectedCell = i;
+                    render();
+                });
+
+                boardEl.appendChild(cell);
+            }
+        }
+    }
+
+    function placeNumber(num) {
+        if (selectedCell < 0 || !playing || paused) return;
+        var r = Math.floor(selectedCell / 4);
+        var c = selectedCell % 4;
+        if (givenCells[selectedCell]) return;
+
+        if (num === 0) {
+            playerBoard[r][c] = 0;
+            render();
+            return;
+        }
+
+        playerBoard[r][c] = num;
+
+        // 检查是否正确
+        if (num !== solution[r][c]) {
+            errors++;
+            errorCountEl.textContent = errors;
+            if (errors >= maxErrors) {
+                gameOver();
+                render();
+                return;
+            }
+        }
+
+        render();
+        checkWin();
+    }
+
+    function checkWin() {
+        for (var r = 0; r < 4; r++) {
+            for (var c = 0; c < 4; c++) {
+                if (playerBoard[r][c] !== solution[r][c]) return;
+            }
+        }
+        winGame();
+    }
+
+    function winGame() {
+        playing = false;
+        stopTimer();
+        winStats.textContent = '用时 ' + formatTime(seconds) + '，错误 ' + errors + ' 次';
+        winOverlay.classList.remove('hidden');
+    }
+
+    function gameOver() {
+        playing = false;
+        stopTimer();
+        loseOverlay.classList.remove('hidden');
+    }
+
+    function startGame() {
+        startOverlay.classList.add('hidden');
+        pauseOverlay.classList.add('hidden');
+        winOverlay.classList.add('hidden');
+        loseOverlay.classList.add('hidden');
+        paused = false;
+        playing = true;
+        errors = 0;
+        errorCountEl.textContent = '0';
+        selectedCell = -1;
+
+        solution = generateSolution();
+        puzzle = generatePuzzle(solution, difficulty);
+        playerBoard = puzzle.map(function(row) { return row.slice(); });
+        givenCells = [];
+        for (var r = 0; r < 4; r++) {
+            for (var c = 0; c < 4; c++) {
+                givenCells.push(puzzle[r][c] !== 0);
+            }
+        }
+
+        startTimer();
+        render();
+    }
+
+    function togglePause() {
+        if (!playing) return;
+        if (paused) {
+            paused = false;
+            pauseOverlay.classList.add('hidden');
+        } else {
+            paused = true;
+            pauseOverlay.classList.remove('hidden');
+        }
+    }
+
+    function moveSelection(dir) {
+        if (selectedCell < 0) {
+            selectedCell = 0;
+            render();
+            return;
+        }
+        var r = Math.floor(selectedCell / 4);
+        var c = selectedCell % 4;
+
+        switch(dir) {
+            case 'up':    if (r > 0) r--; break;
+            case 'down':  if (r < 3) r++; break;
+            case 'left':  if (c > 0) c--; break;
+            case 'right': if (c < 3) c++; break;
+        }
+        selectedCell = r * 4 + c;
+        render();
+    }
+
+    // 键盘事件
+    document.addEventListener('keydown', function(e) {
+        var key = e.key;
+
+        if (key === 'Enter') {
+            e.preventDefault();
+            if (!playing || !winOverlay.classList.contains('hidden') || !loseOverlay.classList.contains('hidden')) {
+                startGame();
+            }
+            return;
+        }
+
+        if (key === ' ' || key === 'Space') {
+            e.preventDefault();
+            if (playing) togglePause();
+            return;
+        }
+
+        if (!playing || paused) return;
+
+        var dirMap = {
+            'ArrowUp': 'up', 'ArrowDown': 'down',
+            'ArrowLeft': 'left', 'ArrowRight': 'right'
+        };
+        if (dirMap[key]) {
+            e.preventDefault();
+            moveSelection(dirMap[key]);
+            return;
+        }
+
+        // 数字键 1-4
+        if (key >= '1' && key <= '4') {
+            e.preventDefault();
+            placeNumber(parseInt(key));
+        }
+
+        // Delete/Backspace 清除
+        if (key === 'Delete' || key === 'Backspace') {
+            e.preventDefault();
+            placeNumber(0);
+        }
+    });
+
+    // 数字面板按钮
+    document.querySelectorAll('.num-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            placeNumber(parseInt(btn.dataset.num));
+        });
+        btn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            placeNumber(parseInt(btn.dataset.num));
+        });
+    });
+
+    // 触控方向键
+    document.querySelectorAll('.ctrl-btn[data-dir]').forEach(function(btn) {
+        btn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            if (!playing || paused) return;
+            moveSelection(btn.dataset.dir);
+        });
+        btn.addEventListener('click', function(e) {
+            if (!playing || paused) return;
+            moveSelection(btn.dataset.dir);
+        });
+    });
+
+    // 初始渲染空棋盘
+    boardEl.innerHTML = '';
+    for (var i = 0; i < 16; i++) {
+        var cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.row = Math.floor(i / 4);
+        cell.dataset.col = i % 4;
+        cell.dataset.index = i;
+        boardEl.appendChild(cell);
+    }
+})();
+</script>
+</body>
+</html>

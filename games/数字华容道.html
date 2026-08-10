@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>数字华容道</title>
+<meta name="game-icon" content="🧩">
+<meta name="game-desc" content="滑动拼图排数字">
+<meta name="game-tag" content="益智">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.game-header {
+    display: flex;
+    align-items: center;
+    gap: min(4vw, 24px);
+    margin-bottom: min(2vh, 12px);
+    font-size: clamp(14px, 2.5vw, 20px);
+}
+
+.game-header span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.game-header .val {
+    color: #4ecca3;
+    font-weight: bold;
+    min-width: 2em;
+    text-align: center;
+}
+
+#board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(2px, 0.5vw, 6px);
+    padding: clamp(4px, 1vw, 10px);
+    background: #16213e;
+    border-radius: clamp(8px, 1.5vw, 16px);
+    border: 2px solid #4ecca3;
+    width: min(80vw, 65vh);
+    height: min(80vw, 65vh);
+}
+
+.tile {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: clamp(4px, 0.8vw, 10px);
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.15s;
+    background: linear-gradient(145deg, #2d3a5c, #1e2a45);
+    color: #fff;
+    border: 1px solid rgba(78, 204, 163, 0.2);
+}
+
+.tile.empty {
+    background: transparent;
+    border: 1px dashed rgba(255,255,255,0.08);
+    cursor: default;
+}
+
+.tile.movable {
+    border-color: rgba(78, 204, 163, 0.5);
+    box-shadow: 0 0 8px rgba(78, 204, 163, 0.15);
+}
+
+.tile.movable:active {
+    transform: scale(0.93);
+}
+
+.tile.correct {
+    background: linear-gradient(145deg, #1a5c42, #145038);
+    border-color: #4ecca3;
+}
+
+/* 覆盖层 */
+.overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.78);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h2 {
+    font-size: clamp(24px, 5vw, 42px);
+    margin-bottom: 12px;
+    color: #4ecca3;
+}
+
+.overlay .sub {
+    font-size: clamp(13px, 2.2vw, 18px);
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 8px;
+}
+
+.diff-row {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.diff-btn {
+    padding: clamp(8px, 1.5vw, 14px) clamp(16px, 3vw, 32px);
+    border: 2px solid #4ecca3;
+    border-radius: 12px;
+    background: rgba(78, 204, 163, 0.1);
+    color: #4ecca3;
+    font-size: clamp(14px, 2.5vw, 20px);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.diff-btn:hover, .diff-btn.active {
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.overlay .hint {
+    font-size: clamp(12px, 2vw, 16px);
+    color: rgba(255,255,255,0.5);
+    margin-top: 16px;
+}
+
+.win-text {
+    font-size: clamp(18px, 3.5vw, 30px);
+    color: #ffd700;
+    margin-bottom: 8px;
+}
+
+/* 触控方向键 */
+.touch-controls {
+    display: none;
+    margin-top: min(2vh, 12px);
+}
+
+.touch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, clamp(48px, 10vw, 64px));
+    grid-template-rows: repeat(3, clamp(48px, 10vw, 64px));
+    gap: 4px;
+}
+
+.ctrl-btn {
+    min-width: 44px;
+    min-height: 44px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: clamp(18px, 4vw, 28px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctrl-btn:active {
+    background: rgba(78, 204, 163, 0.3);
+    border-color: #4ecca3;
+}
+
+.ctrl-placeholder {
+    visibility: hidden;
+}
+
+@media (pointer: coarse) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="game-header">
+    <span>步数: <span class="val" id="moveCount">0</span></span>
+    <span>时间: <span class="val" id="timer">0:00</span></span>
+</div>
+
+<div id="board"></div>
+
+<div class="touch-controls">
+    <div class="touch-grid">
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="up">&#9650;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="left">&#9664;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="right">&#9654;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="down">&#9660;</button>
+        <div class="ctrl-placeholder"></div>
+    </div>
+</div>
+
+<!-- 开始界面 -->
+<div class="overlay" id="startOverlay">
+    <h2>数字华容道</h2>
+    <div class="sub">把数字按从小到大排列</div>
+    <div class="diff-row">
+        <button class="diff-btn active" data-size="3">3×3</button>
+        <button class="diff-btn" data-size="4">4×4</button>
+        <button class="diff-btn" data-size="5">5×5</button>
+    </div>
+    <div class="hint">按 回车 开始</div>
+</div>
+
+<!-- 暂停 -->
+<div class="overlay hidden" id="pauseOverlay">
+    <h2>暂停中</h2>
+    <div class="hint">按 空格 继续</div>
+</div>
+
+<!-- 胜利 -->
+<div class="overlay hidden" id="winOverlay">
+    <h2>恭喜通关！</h2>
+    <div class="win-text" id="winStats"></div>
+    <div class="hint">按 回车 再来一局</div>
+</div>
+
+<script>
+(function() {
+    var boardEl = document.getElementById('board');
+    var moveCountEl = document.getElementById('moveCount');
+    var timerEl = document.getElementById('timer');
+    var startOverlay = document.getElementById('startOverlay');
+    var pauseOverlay = document.getElementById('pauseOverlay');
+    var winOverlay = document.getElementById('winOverlay');
+    var winStats = document.getElementById('winStats');
+
+    var gridSize = 3;
+    var tiles = [];
+    var emptyIndex = 0;
+    var moves = 0;
+    var seconds = 0;
+    var timerInterval = null;
+    var paused = false;
+    var playing = false;
+
+    // 难度选择
+    var diffBtns = document.querySelectorAll('.diff-btn');
+    diffBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            diffBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            gridSize = parseInt(btn.dataset.size);
+        });
+    });
+
+    function formatTime(s) {
+        var m = Math.floor(s / 60);
+        var sec = s % 60;
+        return m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    function startTimer() {
+        stopTimer();
+        seconds = 0;
+        timerEl.textContent = '0:00';
+        timerInterval = setInterval(function() {
+            seconds++;
+            timerEl.textContent = formatTime(seconds);
+        }, 1000);
+    }
+
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    function isSolvable(arr, size) {
+        var inversions = 0;
+        for (var i = 0; i < arr.length; i++) {
+            if (arr[i] === 0) continue;
+            for (var j = i + 1; j < arr.length; j++) {
+                if (arr[j] === 0) continue;
+                if (arr[i] > arr[j]) inversions++;
+            }
+        }
+        if (size % 2 === 1) {
+            return inversions % 2 === 0;
+        } else {
+            var emptyRow = Math.floor(arr.indexOf(0) / size);
+            var fromBottom = size - emptyRow;
+            return (inversions + fromBottom) % 2 === 0;
+        }
+    }
+
+    function shuffle() {
+        var total = gridSize * gridSize;
+        var arr;
+        do {
+            arr = [];
+            for (var i = 0; i < total - 1; i++) arr.push(i + 1);
+            arr.push(0);
+            // Fisher-Yates
+            for (var i = arr.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var tmp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = tmp;
+            }
+        } while (!isSolvable(arr, gridSize) || isWon(arr));
+        return arr;
+    }
+
+    function isWon(arr) {
+        var total = gridSize * gridSize;
+        for (var i = 0; i < total - 1; i++) {
+            if (arr[i] !== i + 1) return false;
+        }
+        return arr[total - 1] === 0;
+    }
+
+    function render() {
+        boardEl.innerHTML = '';
+        var total = gridSize * gridSize;
+        var fontSize = gridSize <= 3 ? '6vw' :
+                       gridSize <= 4 ? '5vw' :
+                                       '4vw';
+
+        for (var i = 0; i < total; i++) {
+            var div = document.createElement('div');
+            div.className = 'tile';
+            div.style.width = (100 / gridSize) + '%';
+            div.style.height = (100 / gridSize) + '%';
+            div.style.fontSize = fontSize;
+            div.dataset.index = i;
+
+            if (tiles[i] === 0) {
+                div.classList.add('empty');
+            } else {
+                div.textContent = tiles[i];
+                // 检查是否在正确位置
+                if (tiles[i] === i + 1) {
+                    div.classList.add('correct');
+                }
+                // 检查是否可移动（与空格相邻）
+                if (isAdjacent(i, emptyIndex)) {
+                    div.classList.add('movable');
+                }
+                div.addEventListener('click', function() {
+                    if (!playing || paused) return;
+                    var idx = parseInt(this.dataset.index);
+                    tryMove(idx);
+                });
+            }
+            boardEl.appendChild(div);
+        }
+        moveCountEl.textContent = moves;
+    }
+
+    function isAdjacent(a, b) {
+        var rowA = Math.floor(a / gridSize), colA = a % gridSize;
+        var rowB = Math.floor(b / gridSize), colB = b % gridSize;
+        return (Math.abs(rowA - rowB) + Math.abs(colA - colB)) === 1;
+    }
+
+    function tryMove(index) {
+        if (tiles[index] === 0) return;
+        if (!isAdjacent(index, emptyIndex)) return;
+
+        // 交换
+        tiles[emptyIndex] = tiles[index];
+        tiles[index] = 0;
+        emptyIndex = index;
+        moves++;
+        render();
+
+        if (isWon(tiles)) {
+            winGame();
+        }
+    }
+
+    function moveDir(dir) {
+        // 方向：移动的是"数字块"，空格反方向移
+        var row = Math.floor(emptyIndex / gridSize);
+        var col = emptyIndex % gridSize;
+        var targetIndex = -1;
+
+        switch(dir) {
+            case 'up':    if (row < gridSize - 1) targetIndex = emptyIndex + gridSize; break;
+            case 'down':  if (row > 0) targetIndex = emptyIndex - gridSize; break;
+            case 'left':  if (col < gridSize - 1) targetIndex = emptyIndex + 1; break;
+            case 'right': if (col > 0) targetIndex = emptyIndex - 1; break;
+        }
+
+        if (targetIndex >= 0) {
+            tryMove(targetIndex);
+        }
+    }
+
+    function winGame() {
+        playing = false;
+        stopTimer();
+        winStats.textContent = moves + ' 步，用时 ' + formatTime(seconds);
+        winOverlay.classList.remove('hidden');
+    }
+
+    function startGame() {
+        startOverlay.classList.add('hidden');
+        pauseOverlay.classList.add('hidden');
+        winOverlay.classList.add('hidden');
+        paused = false;
+        playing = true;
+        moves = 0;
+        tiles = shuffle();
+        emptyIndex = tiles.indexOf(0);
+        startTimer();
+        render();
+    }
+
+    function togglePause() {
+        if (!playing) return;
+        if (paused) {
+            paused = false;
+            pauseOverlay.classList.add('hidden');
+        } else {
+            paused = true;
+            pauseOverlay.classList.remove('hidden');
+        }
+    }
+
+    // 键盘事件
+    document.addEventListener('keydown', function(e) {
+        var key = e.key;
+
+        if (key === 'Enter') {
+            e.preventDefault();
+            if (!playing) {
+                startGame();
+            } else if (winOverlay.classList.contains('hidden') === false) {
+                startGame();
+            }
+            return;
+        }
+
+        if (key === ' ' || key === 'Space') {
+            e.preventDefault();
+            if (playing) togglePause();
+            return;
+        }
+
+        if (!playing || paused) return;
+
+        var dirMap = {
+            'ArrowUp': 'up', 'ArrowDown': 'down',
+            'ArrowLeft': 'left', 'ArrowRight': 'right'
+        };
+        if (dirMap[key]) {
+            e.preventDefault();
+            moveDir(dirMap[key]);
+        }
+    });
+
+    // 触控按钮
+    document.querySelectorAll('.ctrl-btn[data-dir]').forEach(function(btn) {
+        btn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            if (!playing || paused) return;
+            moveDir(btn.dataset.dir);
+        });
+        btn.addEventListener('click', function(e) {
+            if (!playing || paused) return;
+            moveDir(btn.dataset.dir);
+        });
+    });
+
+    // 初始渲染空棋盘
+    tiles = [];
+    for (var i = 0; i < gridSize * gridSize; i++) tiles.push(0);
+    render();
+})();
+</script>
+</body>
+</html>

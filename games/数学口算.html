@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>数学口算</title>
+<meta name="game-icon" content="🔢">
+<meta name="game-desc" content="算术题挑战">
+<meta name="game-tag" content="数学">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.game-area{display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2vh,20px);width:100%;padding:0 16px}
+.score-bar{display:flex;gap:clamp(12px,3vw,24px);font-size:clamp(14px,2.5vw,20px);color:rgba(255,255,255,.7)}
+.score-bar .val{color:#4ecca3;font-weight:bold}
+.question-box{background:rgba(255,255,255,.05);border:2px solid rgba(78,204,163,.3);border-radius:16px;padding:clamp(16px,3vh,32px) clamp(24px,4vw,48px);text-align:center;min-width:min(80vw,400px)}
+.question-text{font-size:clamp(32px,7vw,64px);font-weight:bold;letter-spacing:4px}
+.answer-grid{display:flex;flex-wrap:wrap;gap:clamp(8px,1.5vw,16px);width:min(88vw,440px)}
+.answer-btn{width:50%;box-sizing:border-box;padding:clamp(12px,2vh,24px) clamp(16px,3vw,32px);border:3px solid rgba(255,255,255,.15);border-radius:16px;background:rgba(255,255,255,.05);font-size:clamp(24px,5vw,44px);font-weight:bold;color:#fff;cursor:pointer;transition:all .2s;text-align:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;min-height:clamp(52px,8vh,80px)}
+.answer-btn.selected{border-color:#4ecca3;background:rgba(78,204,163,.15);box-shadow:0 0 16px rgba(78,204,163,.3)}
+.answer-btn.correct{border-color:#4ecca3;background:rgba(78,204,163,.3);animation:popCorrect .4s ease}
+.answer-btn.wrong{border-color:#e74c3c;background:rgba(231,76,60,.2);animation:shake .4s ease}
+.answer-btn.reveal{border-color:#4ecca3;background:rgba(78,204,163,.15)}
+@keyframes popCorrect{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+.feedback{font-size:clamp(28px,5vw,48px);min-height:clamp(36px,6vh,56px);display:flex;align-items:center;justify-content:center}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:4px;width:min(32vw,140px);height:min(32vw,140px);margin-top:1vh;flex-shrink:0}
+.ctrl-btn{min-width:44px;min-height:44px;border:2px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(255,255,255,.05);color:#fff;font-size:clamp(14px,2.5vw,22px);cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.ctrl-btn:active{background:rgba(78,204,163,.3);border-color:#4ecca3}
+.ctrl-btn.empty{visibility:hidden;border:none;background:none}
+.overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.78);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:20px}
+.overlay.hidden{display:none}
+.overlay h1{font-size:clamp(26px,5vw,44px);margin-bottom:10px;text-shadow:0 0 20px rgba(78,204,163,.5)}
+.overlay p{font-size:clamp(14px,2.5vw,20px);color:rgba(255,255,255,.7);margin-bottom:6px}
+.diff-row{display:flex;gap:12px;margin:14px 0}
+.diff-item{padding:10px 20px;border:2px solid rgba(255,255,255,.2);border-radius:10px;font-size:clamp(14px,2.5vw,20px);transition:all .2s}
+.diff-item.active{border-color:#4ecca3;background:rgba(78,204,163,.2);color:#4ecca3;font-weight:bold}
+.hint{font-size:clamp(13px,2vw,18px);color:rgba(255,255,255,.5);margin-top:12px}
+.result-stars{font-size:clamp(32px,6vw,56px);margin:8px 0}
+</style>
+</head>
+<body>
+<div class="game-area" id="gameArea" style="display:none">
+  <div class="score-bar">
+    <span>第 <span class="val" id="qNum">1</span>/10 题</span>
+    <span>✅ <span class="val" id="correctCount">0</span></span>
+  </div>
+  <div class="question-box">
+    <div class="question-text" id="questionText">1 + 1 = ?</div>
+  </div>
+  <div class="answer-grid" id="answerGrid"></div>
+  <div class="feedback" id="feedback"></div>
+</div>
+
+<div class="controls" id="touchControls" style="display:none">
+  <div class="ctrl-btn empty"></div>
+  <button class="ctrl-btn" data-dir="up">▲</button>
+  <div class="ctrl-btn empty"></div>
+  <button class="ctrl-btn" data-dir="left">◀</button>
+  <button class="ctrl-btn" data-action="ok" style="font-size:clamp(12px,2vw,16px)">选</button>
+  <button class="ctrl-btn" data-dir="right">▶</button>
+  <div class="ctrl-btn empty"></div>
+  <button class="ctrl-btn" data-dir="down">▼</button>
+  <div class="ctrl-btn empty"></div>
+</div>
+
+<div class="overlay" id="overlay">
+  <h1 id="olTitle">🔢 数学口算</h1>
+  <p id="olSub">选择难度，按回车开始</p>
+  <div class="diff-row" id="diffRow">
+    <div class="diff-item" data-diff="0">简单</div>
+    <div class="diff-item active" data-diff="1">普通</div>
+    <div class="diff-item" data-diff="2">困难</div>
+  </div>
+  <p class="hint" id="olHint">← → 切换难度 · 回车 开始</p>
+</div>
+
+<script>
+(function(){
+  var overlay = document.getElementById('overlay');
+  var olTitle = document.getElementById('olTitle');
+  var olSub = document.getElementById('olSub');
+  var olHint = document.getElementById('olHint');
+  var diffRow = document.getElementById('diffRow');
+  var diffItems = diffRow.querySelectorAll('.diff-item');
+  var gameArea = document.getElementById('gameArea');
+  var touchControls = document.getElementById('touchControls');
+  var qNumEl = document.getElementById('qNum');
+  var correctCountEl = document.getElementById('correctCount');
+  var questionText = document.getElementById('questionText');
+  var answerGrid = document.getElementById('answerGrid');
+  var feedbackEl = document.getElementById('feedback');
+
+  var TOTAL_Q = 10;
+  var state = 'menu'; // menu, playing, answered, result
+  var diffIdx = 1;
+  var currentQ = 0;
+  var correctTotal = 0;
+  var answers = []; // 4 answer values
+  var correctAnswer = 0;
+  var selectedIdx = 0;
+  var locked = false;
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function generateQuestion() {
+    var a, b, op, answer, text;
+    if (diffIdx === 0) {
+      // Easy: addition 1-5
+      a = randInt(1, 5);
+      b = randInt(1, 5);
+      op = '+';
+      answer = a + b;
+    } else if (diffIdx === 1) {
+      // Medium: addition/subtraction 1-10
+      op = Math.random() < 0.5 ? '+' : '-';
+      if (op === '+') {
+        a = randInt(1, 10);
+        b = randInt(1, 10);
+        answer = a + b;
+      } else {
+        a = randInt(2, 10);
+        b = randInt(1, a);
+        answer = a - b;
+      }
+    } else {
+      // Hard: mix of +, -, ×
+      var r = Math.random();
+      if (r < 0.35) {
+        op = '+';
+        a = randInt(5, 20);
+        b = randInt(5, 20);
+        answer = a + b;
+      } else if (r < 0.7) {
+        op = '-';
+        a = randInt(10, 30);
+        b = randInt(1, a);
+        answer = a - b;
+      } else {
+        op = '×';
+        a = randInt(1, 5);
+        b = randInt(1, 5);
+        answer = a * b;
+      }
+    }
+    text = a + ' ' + op + ' ' + b + ' = ?';
+
+    // Generate 4 choices including the correct answer
+    var choices = [answer];
+    while (choices.length < 4) {
+      var offset = randInt(1, Math.max(3, Math.floor(answer * 0.5) + 1));
+      var wrong = answer + (Math.random() < 0.5 ? offset : -offset);
+      if (wrong < 0) wrong = answer + randInt(1, 5);
+      if (choices.indexOf(wrong) === -1 && wrong !== answer) {
+        choices.push(wrong);
+      }
+    }
+    // Shuffle
+    for (var i = choices.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = choices[i]; choices[i] = choices[j]; choices[j] = t;
+    }
+
+    return {text: text, answer: answer, choices: choices};
+  }
+
+  function showQuestion() {
+    var q = generateQuestion();
+    correctAnswer = q.answer;
+    answers = q.choices;
+    selectedIdx = 0;
+    locked = false;
+    feedbackEl.textContent = '';
+
+    questionText.textContent = q.text;
+    answerGrid.innerHTML = '';
+    for (var i = 0; i < 4; i++) {
+      var btn = document.createElement('button');
+      btn.className = 'answer-btn' + (i === 0 ? ' selected' : '');
+      btn.textContent = answers[i];
+      btn.setAttribute('data-idx', i);
+      answerGrid.appendChild(btn);
+
+      (function(idx, el){
+        el.addEventListener('touchstart', function(e){
+          e.preventDefault();
+          if (state !== 'playing' || locked) return;
+          selectedIdx = idx;
+          updateSelection();
+          confirmAnswer();
+        }, {passive:false});
+        el.addEventListener('click', function(){
+          if (state !== 'playing' || locked) return;
+          selectedIdx = idx;
+          updateSelection();
+          confirmAnswer();
+        });
+      })(i, btn);
+    }
+
+    currentQ++;
+    qNumEl.textContent = currentQ;
+    state = 'playing';
+  }
+
+  function updateSelection() {
+    var btns = answerGrid.querySelectorAll('.answer-btn');
+    btns.forEach(function(b, i) {
+      b.classList.toggle('selected', i === selectedIdx && !b.classList.contains('correct') && !b.classList.contains('wrong'));
+    });
+  }
+
+  function confirmAnswer() {
+    if (locked || state !== 'playing') return;
+    locked = true;
+    var btns = answerGrid.querySelectorAll('.answer-btn');
+    var chosen = answers[selectedIdx];
+
+    if (chosen === correctAnswer) {
+      btns[selectedIdx].classList.remove('selected');
+      btns[selectedIdx].classList.add('correct');
+      correctTotal++;
+      correctCountEl.textContent = correctTotal;
+      var msgs = ['太棒了！🎉','真聪明！⭐','答对了！👏','好厉害！🌟','正确！✨'];
+      feedbackEl.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+    } else {
+      btns[selectedIdx].classList.remove('selected');
+      btns[selectedIdx].classList.add('wrong');
+      // Reveal correct answer
+      for (var i = 0; i < 4; i++) {
+        if (answers[i] === correctAnswer) {
+          btns[i].classList.add('reveal');
+          break;
+        }
+      }
+      feedbackEl.textContent = '正确答案是 ' + correctAnswer + ' 💪';
+    }
+
+    setTimeout(function(){
+      if (currentQ >= TOTAL_Q) {
+        state = 'result';
+        showResult();
+      } else {
+        showQuestion();
+      }
+    }, 1500);
+  }
+
+  function showResult() {
+    gameArea.style.display = 'none';
+    touchControls.style.display = 'none';
+    var stars = '';
+    var pct = correctTotal / TOTAL_Q;
+    if (pct >= 0.9) stars = '🌟🌟🌟';
+    else if (pct >= 0.7) stars = '🌟🌟';
+    else if (pct >= 0.5) stars = '🌟';
+    else stars = '💪';
+
+    var msg = '';
+    if (pct >= 0.9) msg = '太厉害了！你是数学天才！';
+    else if (pct >= 0.7) msg = '非常棒！继续加油！';
+    else if (pct >= 0.5) msg = '不错哦！再练练更好！';
+    else msg = '没关系，多练习就会进步！';
+
+    olTitle.innerHTML = '<span class="result-stars">' + stars + '</span><br>答题结束';
+    olSub.textContent = '答对 ' + correctTotal + '/' + TOTAL_Q + ' 题 — ' + msg;
+    olHint.textContent = '回车 再来一次 · 空格 换难度';
+    diffRow.style.display = 'none';
+    overlay.classList.remove('hidden');
+  }
+
+  function startGame() {
+    currentQ = 0;
+    correctTotal = 0;
+    correctCountEl.textContent = '0';
+    overlay.classList.add('hidden');
+    gameArea.style.display = 'flex';
+    touchControls.style.display = 'grid';
+    showQuestion();
+  }
+
+  function showMenu() {
+    state = 'menu';
+    gameArea.style.display = 'none';
+    touchControls.style.display = 'none';
+    olTitle.textContent = '🔢 数学口算';
+    olSub.textContent = '选择难度，按回车开始';
+    olHint.textContent = '← → 切换难度 · 回车 开始';
+    diffRow.style.display = 'flex';
+    updateDiffUI();
+    overlay.classList.remove('hidden');
+  }
+
+  function updateDiffUI() {
+    diffItems.forEach(function(item, i) {
+      item.classList.toggle('active', i === diffIdx);
+    });
+  }
+
+  // --- Input ---
+  document.addEventListener('keydown', function(e) {
+    var key = e.key;
+
+    if (state === 'menu') {
+      if (key === 'ArrowLeft' || key === 'ArrowRight') {
+        e.preventDefault();
+        if (key === 'ArrowLeft') diffIdx = Math.max(0, diffIdx - 1);
+        else diffIdx = Math.min(DIFFS.length - 1, diffIdx + 1);
+        updateDiffUI();
+      } else if (key === 'Enter' || key === ' ') {
+        e.preventDefault();
+        startGame();
+      }
+      return;
+    }
+
+    if (state === 'playing') {
+      if (key === 'ArrowLeft' || key === 'a' || key === 'A') {
+        e.preventDefault();
+        selectedIdx = (selectedIdx + 3) % 4; // left: -1 in 2-col grid
+        // In 2-col grid: 0,1 top row; 2,3 bottom row
+        // Left from 0->stay, 1->0, 2->stay, 3->2
+        if (selectedIdx % 2 === 1 && key !== 'ArrowDown' && key !== 'ArrowUp') {
+          // actually let me redo this properly
+        }
+        updateSelection();
+      } else if (key === 'ArrowRight' || key === 'd' || key === 'D') {
+        e.preventDefault();
+        // 2-col grid: left<->right in same row
+        if (selectedIdx % 2 === 0) selectedIdx++;
+        updateSelection();
+      } else if (key === 'ArrowUp' || key === 'w' || key === 'W') {
+        e.preventDefault();
+        // Up: go to same column in row above
+        if (selectedIdx >= 2) selectedIdx -= 2;
+        updateSelection();
+      } else if (key === 'ArrowDown' || key === 's' || key === 'S') {
+        e.preventDefault();
+        // Down: go to same column in row below
+        if (selectedIdx < 2) selectedIdx += 2;
+        updateSelection();
+      } else if (key === 'Enter' || key === ' ') {
+        e.preventDefault();
+        confirmAnswer();
+      }
+      return;
+    }
+
+    if (state === 'result') {
+      if (key === 'Enter') { e.preventDefault(); startGame(); }
+      else if (key === ' ') { e.preventDefault(); showMenu(); }
+      return;
+    }
+  });
+
+  // Fix arrow key navigation for 2x2 grid
+  // Override the above with cleaner logic:
+  document.addEventListener('keydown', function(e) {
+    if (state !== 'playing') return;
+    var key = e.key;
+    // Grid layout: [0][1] / [2][3]
+    if (key === 'ArrowLeft') {
+      e.preventDefault();
+      if (selectedIdx % 2 === 1) selectedIdx--;
+    } else if (key === 'ArrowRight') {
+      e.preventDefault();
+      if (selectedIdx % 2 === 0) selectedIdx++;
+    } else if (key === 'ArrowUp') {
+      e.preventDefault();
+      if (selectedIdx >= 2) selectedIdx -= 2;
+    } else if (key === 'ArrowDown') {
+      e.preventDefault();
+      if (selectedIdx < 2) selectedIdx += 2;
+    }
+    updateSelection();
+  });
+
+  // Touch controls
+  document.querySelectorAll('.ctrl-btn[data-dir]').forEach(function(btn) {
+    function handleDir(ev) {
+      ev.preventDefault();
+      if (state !== 'playing') return;
+      var dir = btn.getAttribute('data-dir');
+      if (dir === 'left' && selectedIdx % 2 === 1) selectedIdx--;
+      else if (dir === 'right' && selectedIdx % 2 === 0) selectedIdx++;
+      else if (dir === 'up' && selectedIdx >= 2) selectedIdx -= 2;
+      else if (dir === 'down' && selectedIdx < 2) selectedIdx += 2;
+      updateSelection();
+    }
+    btn.addEventListener('touchstart', handleDir, {passive:false});
+    btn.addEventListener('mousedown', handleDir);
+  });
+
+  var okBtn = document.querySelector('.ctrl-btn[data-action="ok"]');
+  if (okBtn) {
+    function handleOk(ev) {
+      ev.preventDefault();
+      if (state !== 'playing') return;
+      confirmAnswer();
+    }
+    okBtn.addEventListener('touchstart', handleOk, {passive:false});
+    okBtn.addEventListener('mousedown', handleOk);
+  }
+
+  // Touch overlay
+  overlay.addEventListener('touchstart', function(e) {
+    if (state === 'menu') {
+      var target = e.target;
+      if (target.classList.contains('diff-item')) {
+        diffIdx = parseInt(target.getAttribute('data-diff'));
+        updateDiffUI();
+        return;
+      }
+      e.preventDefault();
+      startGame();
+    } else if (state === 'result') {
+      e.preventDefault();
+      startGame();
+    }
+  }, {passive:false});
+
+  showMenu();
+})();
+</script>
+</body>
+</html>

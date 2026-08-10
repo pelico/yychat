@@ -55,8 +55,56 @@
   .hint { font-size: 11px; color: var(--muted); text-align: center; margin-top: 14px; line-height: 1.6; }
 
   /* ---------- 聊天页 ---------- */
-  #app { display: none; flex-direction: column; height: 100%; }
+  #app { display: none; flex-direction: row; height: 100%; }
   #app.show { display: flex; }
+
+  /* 侧边栏 */
+  #sidebar {
+    width: 76px; flex-shrink: 0; background: rgba(15,23,42,.95);
+    border-right: 1px solid rgba(148,163,184,.12); display: flex; flex-direction: column;
+    align-items: center; padding: 14px 0 10px; gap: 6px; z-index: 5;
+  }
+  .nav-btn {
+    width: 58px; height: 58px; border-radius: 14px; border: none; cursor: pointer;
+    background: transparent; color: var(--muted); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px; transition: all .2s;
+  }
+  .nav-btn .nav-icon { font-size: 22px; line-height: 1; }
+  .nav-btn .nav-label { font-size: 10px; line-height: 1; }
+  .nav-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+  .nav-btn:active { transform: scale(.92); }
+  .sidebar-spacer { flex: 1; }
+
+  /* 视图容器 */
+  #chat-view { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #games-view { flex: 1; display: none; flex-direction: column; min-width: 0; min-height: 0; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); }
+  #games-view.show { display: flex; }
+
+  /* 游戏室：列表 */
+  #games-list { flex: 1; overflow-y: auto; padding: 20px 16px; }
+  #games-list .gh-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 4px;
+    background: linear-gradient(90deg, #4ecca3, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  #games-list .gh-sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 20px; }
+  .games-grid { display: flex; flex-wrap: wrap; justify-content: center; max-width: 1000px; margin: 0 auto; }
+  .game-card {
+    width: 150px; margin: 8px; background: rgba(30,41,59,.7); border: 2px solid rgba(148,163,184,.15);
+    border-radius: 14px; padding: 16px 12px; text-align: center; cursor: pointer; color: var(--text);
+    transition: all .2s; border: none; font-family: inherit;
+  }
+  .game-card:hover { border-color: var(--accent); background: rgba(99,102,241,.15); transform: translateY(-2px); }
+  .game-card:active { transform: scale(.96); }
+  .game-card .gc-icon { font-size: 44px; display: block; margin-bottom: 8px; }
+  .game-card .gc-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .game-card .gc-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .game-card .gc-tag { display: inline-block; margin-top: 8px; padding: 2px 10px; border-radius: 10px; font-size: 10px; background: rgba(99,102,241,.2); color: #a5b4fc; }
+
+  /* 游戏室：播放器 */
+  #games-player { flex: 1; display: none; flex-direction: column; min-height: 0; }
+  #games-player.show { display: flex; }
+  .player-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: rgba(30,41,59,.7); border-bottom: 1px solid rgba(148,163,184,.12); }
+  .player-bar .pb-title { flex: 1; font-size: 15px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #game-frame { flex: 1; border: none; width: 100%; background: #1a1a2e; }
+
   header {
     display: flex; align-items: center; gap: 10px; padding: 12px 16px;
     background: rgba(30,41,59,.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(148,163,184,.12);
@@ -225,26 +273,60 @@
   </div>
 </div>
 
-<!-- 聊天页 -->
+<!-- 主应用（侧边栏 + 视图） -->
 <div id="app">
-  <header>
-    <div class="room-info">
-      <div class="room-name" id="room-name">lobby</div>
-      <div class="room-meta"><span class="dot" id="status-dot"></span><span id="status-text">连接中…</span></div>
-    </div>
-    <button class="icon-btn" id="leave-btn" title="离开">✕</button>
-  </header>
+  <!-- 侧边栏 -->
+  <nav id="sidebar">
+    <button class="nav-btn active" data-view="chat" title="聊天室">
+      <span class="nav-icon">💬</span><span class="nav-label">聊天</span>
+    </button>
+    <button class="nav-btn" data-view="games" title="游戏室">
+      <span class="nav-icon">🎮</span><span class="nav-label">游戏</span>
+    </button>
+    <div class="sidebar-spacer"></div>
+    <button class="nav-btn" id="leave-btn" title="离开">
+      <span class="nav-icon">✕</span><span class="nav-label">离开</span>
+    </button>
+  </nav>
 
-  <div id="messages"></div>
+  <!-- 聊天视图 -->
+  <div id="chat-view">
+    <header>
+      <div class="room-info">
+        <div class="room-name" id="room-name">lobby</div>
+        <div class="room-meta"><span class="dot" id="status-dot"></span><span id="status-text">连接中…</span></div>
+      </div>
+    </header>
 
-  <div id="composer">
-    <div id="emoji-panel">
-      <div id="emoji-content"></div>
+    <div id="messages"></div>
+
+    <div id="composer">
+      <div id="emoji-panel">
+        <div id="emoji-content"></div>
+      </div>
+      <button class="icon-btn" id="emoji-btn" title="表情">😀</button>
+      <button class="icon-btn" id="board-btn" title="画板">🎨</button>
+      <textarea id="text" rows="1" placeholder="发条消息…"></textarea>
+      <button id="send" title="发送">➤</button>
     </div>
-    <button class="icon-btn" id="emoji-btn" title="表情">😀</button>
-    <button class="icon-btn" id="board-btn" title="画板">🎨</button>
-    <textarea id="text" rows="1" placeholder="发条消息…"></textarea>
-    <button id="send" title="发送">➤</button>
+  </div>
+
+  <!-- 游戏视图 -->
+  <div id="games-view">
+    <!-- 游戏列表 -->
+    <div id="games-list">
+      <div class="gh-title">游戏中心</div>
+      <div class="gh-sub">选一个游戏开始玩吧</div>
+      <div class="games-grid" id="games-grid"></div>
+    </div>
+    <!-- 游戏播放器 -->
+    <div id="games-player">
+      <div class="player-bar">
+        <button class="icon-btn" id="game-back" title="返回列表">←</button>
+        <div class="pb-title" id="pb-title">游戏</div>
+      </div>
+      <iframe id="game-frame" title="游戏"></iframe>
+    </div>
   </div>
 </div>
 
@@ -709,6 +791,67 @@
     gate.style.display = "flex";
     messagesEl.innerHTML = "";
     setStatus(false, "未连接");
+  });
+
+  // ===== 侧边栏视图切换 =====
+  var chatView = $("chat-view"), gamesView = $("games-view");
+  var navBtns = document.querySelectorAll(".nav-btn[data-view]");
+  navBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var view = btn.getAttribute("data-view");
+      navBtns.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      if (view === "chat") {
+        chatView.style.display = ""; gamesView.classList.remove("show");
+      } else {
+        chatView.style.display = "none"; gamesView.classList.add("show");
+      }
+    });
+  });
+
+  // ===== 游戏室 =====
+  var GAMES = [
+    { file: "贪吃蛇.html",     name: "贪吃蛇",     icon: "🐍", desc: "控制蛇吃食物变长",   tag: "经典" },
+    { file: "走迷宫.html",     name: "走迷宫",     icon: "🏰", desc: "找到出口，3种难度", tag: "益智" },
+    { file: "记忆翻牌.html",   name: "记忆翻牌",   icon: "🃏", desc: "翻牌配对，锻炼记忆", tag: "记忆" },
+    { file: "数学口算.html",   name: "数学口算",   icon: "🔢", desc: "算术题挑战",         tag: "数学" },
+    { file: "打地鼠.html",     name: "打地鼠",     icon: "🔨", desc: "快速反应打地鼠",     tag: "反应" },
+    { file: "数字华容道.html", name: "数字华容道", icon: "🧩", desc: "滑动拼图排数字",     tag: "益智" },
+    { file: "儿童数独.html",   name: "儿童数独",   icon: "📊", desc: "4×4简化版数独",      tag: "数学" },
+    { file: "推箱子.html",     name: "推箱子",     icon: "📦", desc: "把箱子推到目标",     tag: "益智" },
+    { file: "找规律.html",     name: "找规律",     icon: "🔮", desc: "找出图形规律",       tag: "逻辑" },
+    { file: "消消乐.html",     name: "消消乐",     icon: "🍎", desc: "三个相同就消除",     tag: "消除" },
+    { file: "接水管.html",     name: "接水管",     icon: "🔧", desc: "旋转水管接通水流",   tag: "益智" }
+  ];
+  // 按名称排序
+  GAMES.sort(function (a, b) { return a.name.localeCompare(b.name, "zh-Hans-CN"); });
+
+  var gamesGrid = $("games-grid");
+  var gamesPlayer = $("games-player");
+  var gameFrame = $("game-frame");
+  var pbTitle = $("pb-title");
+
+  GAMES.forEach(function (g) {
+    var card = document.createElement("button");
+    card.className = "game-card";
+    card.innerHTML =
+      '<span class="gc-icon">' + g.icon + '</span>' +
+      '<div class="gc-name">' + esc(g.name) + '</div>' +
+      '<div class="gc-desc">' + esc(g.desc) + '</div>' +
+      '<span class="gc-tag">' + esc(g.tag) + '</span>';
+    card.addEventListener("click", function () {
+      pbTitle.textContent = g.name;
+      gameFrame.src = "games/" + g.file;
+      gamesGrid.parentElement.style.display = "none";   // 隐藏列表
+      gamesPlayer.classList.add("show");
+    });
+    gamesGrid.appendChild(card);
+  });
+
+  $("game-back").addEventListener("click", function () {
+    gameFrame.src = "about:blank";
+    gamesPlayer.classList.remove("show");
+    gamesGrid.parentElement.style.display = "";   // 恢复列表
   });
 
   window.addEventListener("beforeunload", function () {

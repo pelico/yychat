@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>找规律</title>
+<meta name="game-icon" content="🔮">
+<meta name="game-desc" content="找出图形规律">
+<meta name="game-tag" content="逻辑">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.game-header {
+    display: flex;
+    align-items: center;
+    gap: min(4vw, 24px);
+    margin-bottom: min(2vh, 12px);
+    font-size: clamp(14px, 2.5vw, 20px);
+}
+
+.game-header span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.game-header .val {
+    color: #4ecca3;
+    font-weight: bold;
+    min-width: 2em;
+    text-align: center;
+}
+
+.pattern-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 20px);
+    padding: clamp(12px, 3vw, 24px);
+    background: #16213e;
+    border: 2px solid #4ecca3;
+    border-radius: 16px;
+    min-width: min(90vw, 600px);
+    min-height: clamp(80px, 15vh, 140px);
+    flex-wrap: wrap;
+}
+
+.pattern-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(40px, 8vw, 72px);
+    height: clamp(40px, 8vw, 72px);
+    position: relative;
+}
+
+.pattern-item canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.question-mark {
+    font-size: clamp(28px, 6vw, 52px);
+    color: #ffd700;
+    font-weight: bold;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.8; }
+}
+
+.arrow {
+    font-size: clamp(18px, 3vw, 30px);
+    color: rgba(255,255,255,0.3);
+    margin: 0 clamp(2px, 0.5vw, 8px);
+}
+
+/* 选项区域 */
+.choices-area {
+    display: flex;
+    gap: clamp(12px, 3vw, 24px);
+    margin-top: min(3vh, 20px);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.choice-btn {
+    width: clamp(60px, 12vw, 100px);
+    height: clamp(60px, 12vw, 100px);
+    border: 3px solid rgba(78, 204, 163, 0.3);
+    border-radius: 16px;
+    background: rgba(78, 204, 163, 0.05);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.choice-btn canvas {
+    width: 80%;
+    height: 80%;
+}
+
+.choice-btn.selected {
+    border-color: #4ecca3;
+    background: rgba(78, 204, 163, 0.2);
+    transform: scale(1.05);
+}
+
+.choice-btn.correct {
+    border-color: #2ecc71;
+    background: rgba(46, 204, 113, 0.3);
+    animation: correctPop 0.4s ease;
+}
+
+.choice-btn.wrong {
+    border-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.2);
+    animation: shake 0.4s ease;
+}
+
+.choice-btn .choice-label {
+    position: absolute;
+    bottom: -20px;
+    font-size: clamp(11px, 2vw, 14px);
+    color: rgba(255,255,255,0.5);
+}
+
+@keyframes correctPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1.05); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+}
+
+.feedback {
+    margin-top: min(2vh, 12px);
+    font-size: clamp(16px, 3vw, 24px);
+    min-height: 1.5em;
+    text-align: center;
+}
+
+.feedback.correct-text { color: #2ecc71; }
+.feedback.wrong-text { color: #e74c3c; }
+
+/* 覆盖层 */
+.overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.78);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h2 {
+    font-size: clamp(24px, 5vw, 42px);
+    margin-bottom: 12px;
+    color: #4ecca3;
+}
+
+.overlay .sub {
+    font-size: clamp(13px, 2.2vw, 18px);
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 8px;
+    text-align: center;
+    max-width: 80vw;
+    line-height: 1.5;
+}
+
+.diff-row {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.diff-btn {
+    padding: clamp(8px, 1.5vw, 14px) clamp(16px, 3vw, 32px);
+    border: 2px solid #4ecca3;
+    border-radius: 12px;
+    background: rgba(78, 204, 163, 0.1);
+    color: #4ecca3;
+    font-size: clamp(14px, 2.5vw, 20px);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.diff-btn:hover, .diff-btn.active {
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.overlay .hint {
+    font-size: clamp(12px, 2vw, 16px);
+    color: rgba(255,255,255,0.5);
+    margin-top: 16px;
+}
+
+.win-text {
+    font-size: clamp(18px, 3.5vw, 30px);
+    color: #ffd700;
+    margin-bottom: 8px;
+}
+
+.stars {
+    font-size: clamp(28px, 6vw, 48px);
+    margin-bottom: 8px;
+}
+
+/* 触控方向键 */
+.touch-controls {
+    display: none;
+    margin-top: min(2vh, 12px);
+}
+
+.touch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, clamp(48px, 10vw, 64px));
+    grid-template-rows: repeat(3, clamp(48px, 10vw, 64px));
+    gap: 4px;
+}
+
+.ctrl-btn {
+    min-width: 44px;
+    min-height: 44px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: clamp(18px, 4vw, 28px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctrl-btn:active {
+    background: rgba(78, 204, 163, 0.3);
+    border-color: #4ecca3;
+}
+
+.ctrl-placeholder { visibility: hidden; }
+
+@media (pointer: coarse) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="game-header">
+    <span>第 <span class="val" id="questionNum">1</span>/10 题</span>
+    <span>得分: <span class="val" id="score">0</span></span>
+    <span>连对: <span class="val" id="streak">0</span></span>
+</div>
+
+<div class="pattern-area" id="patternArea"></div>
+
+<div class="choices-area" id="choicesArea"></div>
+
+<div class="feedback" id="feedback"></div>
+
+<div class="touch-controls">
+    <div class="touch-grid">
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="up">&#9650;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="left">&#9664;</button>
+        <button class="ctrl-btn" data-dir="ok" style="font-size:clamp(14px,3vw,20px);">选</button>
+        <button class="ctrl-btn" data-dir="right">&#9654;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="down">&#9660;</button>
+        <div class="ctrl-placeholder"></div>
+    </div>
+</div>
+
+<!-- 开始界面 -->
+<div class="overlay" id="startOverlay">
+    <h2>找规律</h2>
+    <div class="sub">观察图形的排列规律<br>选出下一个应该是什么</div>
+    <div class="diff-row">
+        <button class="diff-btn active" data-diff="easy">简单</button>
+        <button class="diff-btn" data-diff="medium">普通</button>
+        <button class="diff-btn" data-diff="hard">困难</button>
+    </div>
+    <div class="hint">按 回车 开始</div>
+</div>
+
+<!-- 暂停 -->
+<div class="overlay hidden" id="pauseOverlay">
+    <h2>暂停中</h2>
+    <div class="hint">按 空格 继续</div>
+</div>
+
+<!-- 结束 -->
+<div class="overlay hidden" id="endOverlay">
+    <h2>游戏结束</h2>
+    <div class="stars" id="endStars"></div>
+    <div class="win-text" id="endStats"></div>
+    <div class="hint">按 回车 再来一局</div>
+</div>
+
+<script>
+(function() {
+    var patternArea = document.getElementById('patternArea');
+    var choicesArea = document.getElementById('choicesArea');
+    var feedbackEl = document.getElementById('feedback');
+    var questionNumEl = document.getElementById('questionNum');
+    var scoreEl = document.getElementById('score');
+    var streakEl = document.getElementById('streak');
+    var startOverlay = document.getElementById('startOverlay');
+    var pauseOverlay = document.getElementById('pauseOverlay');
+    var endOverlay = document.getElementById('endOverlay');
+    var endStars = document.getElementById('endStars');
+    var endStats = document.getElementById('endStats');
+
+    var difficulty = 'easy';
+    var currentQuestion = 0;
+    var totalQuestions = 10;
+    var score = 0;
+    var streak = 0;
+    var maxStreak = 0;
+    var paused = false;
+    var playing = false;
+    var selectedChoice = 0;
+    var currentAnswer = 0;
+    var answered = false;
+
+    // 形状类型
+    var SHAPES = ['circle', 'square', 'triangle', 'star', 'diamond', 'heart'];
+    var COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
+    var SIZES = ['small', 'medium', 'large'];
+
+    // 难度选择
+    var diffBtns = document.querySelectorAll('.diff-btn');
+    diffBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            diffBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            difficulty = btn.dataset.diff;
+        });
+    });
+
+    function randInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function shuffle(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        }
+        return arr;
+    }
+
+    function drawShape(canvas, shape, color, size) {
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width;
+        var h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        var s = size === 'small' ? w * 0.3 : size === 'medium' ? w * 0.45 : w * 0.6;
+        var cx = w / 2;
+        var cy = h / 2;
+
+        ctx.fillStyle = color;
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 2;
+
+        switch(shape) {
+            case 'circle':
+                ctx.beginPath();
+                ctx.arc(cx, cy, s/2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                break;
+            case 'square':
+                ctx.fillRect(cx - s/2, cy - s/2, s, s);
+                ctx.strokeRect(cx - s/2, cy - s/2, s, s);
+                break;
+            case 'triangle':
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - s/2);
+                ctx.lineTo(cx + s/2, cy + s/2);
+                ctx.lineTo(cx - s/2, cy + s/2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                break;
+            case 'star':
+                ctx.beginPath();
+                for (var i = 0; i < 5; i++) {
+                    var angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+                    var x = cx + Math.cos(angle) * s/2;
+                    var y = cy + Math.sin(angle) * s/2;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                break;
+            case 'diamond':
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - s/2);
+                ctx.lineTo(cx + s/2, cy);
+                ctx.lineTo(cx, cy + s/2);
+                ctx.lineTo(cx - s/2, cy);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                break;
+            case 'heart':
+                ctx.beginPath();
+                var topY = cy - s * 0.2;
+                ctx.moveTo(cx, cy + s/2);
+                ctx.bezierCurveTo(cx - s, topY, cx - s/2, topY - s/2, cx, topY);
+                ctx.bezierCurveTo(cx + s/2, topY - s/2, cx + s, topY, cx, cy + s/2);
+                ctx.fill();
+                ctx.stroke();
+                break;
+        }
+    }
+
+    function createPatternItem(shape, color, size) {
+        var div = document.createElement('div');
+        div.className = 'pattern-item';
+        var canvas = document.createElement('canvas');
+        canvas.width = 80;
+        canvas.height = 80;
+        div.appendChild(canvas);
+        drawShape(canvas, shape, color, size);
+        return div;
+    }
+
+    function generateQuestion() {
+        patternArea.innerHTML = '';
+        choicesArea.innerHTML = '';
+        feedbackEl.textContent = '';
+        feedbackEl.className = 'feedback';
+        answered = false;
+        selectedChoice = 0;
+
+        var patternLen, numShown, numChoices;
+        if (difficulty === 'easy') {
+            patternLen = 2;
+            numShown = randInt(4, 6);
+            numChoices = 3;
+        } else if (difficulty === 'medium') {
+            patternLen = randInt(2, 3);
+            numShown = randInt(4, 6);
+            numChoices = 4;
+        } else {
+            patternLen = randInt(2, 4);
+            numShown = randInt(5, 7);
+            numChoices = 4;
+        }
+
+        // 生成规律模式
+        var pattern = [];
+        var usedShapes = shuffle(SHAPES.slice()).slice(0, patternLen);
+        var usedColors = shuffle(COLORS.slice()).slice(0, patternLen);
+
+        var varyColor = difficulty !== 'easy' && Math.random() > 0.5;
+        var varyShape = difficulty === 'hard' && Math.random() > 0.5;
+
+        for (var i = 0; i < patternLen; i++) {
+            pattern.push({
+                shape: usedShapes[i % usedShapes.length],
+                color: varyColor ? usedColors[i % usedColors.length] : usedColors[0],
+                size: 'medium'
+            });
+        }
+
+        // 显示序列
+        var sequence = [];
+        for (var i = 0; i < numShown; i++) {
+            var item = pattern[i % patternLen];
+            sequence.push(item);
+            patternArea.appendChild(createPatternItem(item.shape, item.color, item.size));
+        }
+
+        // 问号
+        var qDiv = document.createElement('div');
+        qDiv.className = 'pattern-item';
+        qDiv.innerHTML = '<span class="question-mark">?</span>';
+        patternArea.appendChild(qDiv);
+
+        // 正确答案
+        var correctItem = pattern[numShown % patternLen];
+        currentAnswer = -1;
+
+        // 生成选项
+        var choices = [correctItem];
+        var allItems = [];
+        for (var si = 0; si < SHAPES.length; si++) {
+            for (var ci = 0; ci < COLORS.length; ci++) {
+                allItems.push({ shape: SHAPES[si], color: COLORS[ci], size: 'medium' });
+            }
+        }
+
+        while (choices.length < numChoices) {
+            var rand = allItems[randInt(0, allItems.length - 1)];
+            var isDup = false;
+            for (var k = 0; k < choices.length; k++) {
+                if (choices[k].shape === rand.shape && choices[k].color === rand.color) {
+                    isDup = true; break;
+                }
+            }
+            if (!isDup) choices.push(rand);
+        }
+
+        // 打乱选项
+        shuffle(choices);
+
+        // 找到正确答案索引
+        for (var i = 0; i < choices.length; i++) {
+            if (choices[i].shape === correctItem.shape && choices[i].color === correctItem.color) {
+                currentAnswer = i;
+                break;
+            }
+        }
+
+        // 渲染选项
+        choices.forEach(function(item, idx) {
+            var btn = document.createElement('div');
+            btn.className = 'choice-btn';
+            btn.dataset.index = idx;
+            var canvas = document.createElement('canvas');
+            canvas.width = 80;
+            canvas.height = 80;
+            btn.appendChild(canvas);
+            drawShape(canvas, item.shape, item.color, item.size);
+
+            var label = document.createElement('span');
+            label.className = 'choice-label';
+            label.textContent = (idx + 1);
+            btn.appendChild(label);
+
+            if (idx === selectedChoice) btn.classList.add('selected');
+
+            btn.addEventListener('click', function() {
+                if (!playing || paused || answered) return;
+                selectChoice(idx);
+            });
+
+            choicesArea.appendChild(btn);
+        });
+    }
+
+    function selectChoice(idx) {
+        if (answered) return;
+        selectedChoice = idx;
+        var btns = choicesArea.querySelectorAll('.choice-btn');
+        btns.forEach(function(b) { b.classList.remove('selected'); });
+        btns[idx].classList.add('selected');
+        confirmChoice();
+    }
+
+    function confirmChoice() {
+        if (answered) return;
+        answered = true;
+
+        var btns = choicesArea.querySelectorAll('.choice-btn');
+        if (selectedChoice === currentAnswer) {
+            btns[selectedChoice].classList.add('correct');
+            score += 10 + streak * 2;
+            streak++;
+            if (streak > maxStreak) maxStreak = streak;
+            feedbackEl.textContent = '答对了！+' + (10 + (streak-1) * 2) + '分';
+            feedbackEl.className = 'feedback correct-text';
+        } else {
+            btns[selectedChoice].classList.add('wrong');
+            btns[currentAnswer].classList.add('correct');
+            streak = 0;
+            feedbackEl.textContent = '答错了，正确答案已标出';
+            feedbackEl.className = 'feedback wrong-text';
+        }
+
+        scoreEl.textContent = score;
+        streakEl.textContent = streak;
+
+        setTimeout(function() {
+            currentQuestion++;
+            if (currentQuestion >= totalQuestions) {
+                endGame();
+            } else {
+                questionNumEl.textContent = currentQuestion + 1;
+                generateQuestion();
+            }
+        }, 1200);
+    }
+
+    function endGame() {
+        playing = false;
+        var starCount = score >= 120 ? 3 : score >= 80 ? 2 : score >= 40 ? 1 : 0;
+        var starStr = '';
+        for (var i = 0; i < 3; i++) {
+            starStr += i < starCount ? '★' : '☆';
+        }
+        endStars.textContent = starStr;
+        endStats.textContent = '得分 ' + score + '，最长连对 ' + maxStreak + ' 题';
+        endOverlay.classList.remove('hidden');
+    }
+
+    function startGame() {
+        startOverlay.classList.add('hidden');
+        pauseOverlay.classList.add('hidden');
+        endOverlay.classList.add('hidden');
+        paused = false;
+        playing = true;
+        currentQuestion = 0;
+        score = 0;
+        streak = 0;
+        maxStreak = 0;
+        selectedChoice = 0;
+        scoreEl.textContent = '0';
+        streakEl.textContent = '0';
+        questionNumEl.textContent = '1';
+        generateQuestion();
+    }
+
+    function togglePause() {
+        if (!playing) return;
+        if (paused) {
+            paused = false;
+            pauseOverlay.classList.add('hidden');
+        } else {
+            paused = true;
+            pauseOverlay.classList.remove('hidden');
+        }
+    }
+
+    // 键盘
+    document.addEventListener('keydown', function(e) {
+        var key = e.key;
+
+        if (key === 'Enter') {
+            e.preventDefault();
+            if (!playing || !endOverlay.classList.contains('hidden')) {
+                startGame();
+            } else if (playing && !answered) {
+                confirmChoice();
+            }
+            return;
+        }
+
+        if (key === ' ' || key === 'Space') {
+            e.preventDefault();
+            if (playing) togglePause();
+            return;
+        }
+
+        if (!playing || paused || answered) return;
+
+        var btns = choicesArea.querySelectorAll('.choice-btn');
+        var count = btns.length;
+
+        if (key === 'ArrowLeft') {
+            e.preventDefault();
+            selectedChoice = (selectedChoice - 1 + count) % count;
+            btns.forEach(function(b) { b.classList.remove('selected'); });
+            btns[selectedChoice].classList.add('selected');
+        } else if (key === 'ArrowRight') {
+            e.preventDefault();
+            selectedChoice = (selectedChoice + 1) % count;
+            btns.forEach(function(b) { b.classList.remove('selected'); });
+            btns[selectedChoice].classList.add('selected');
+        } else if (key === 'ArrowUp' || key === 'ArrowDown') {
+            e.preventDefault();
+        } else if (key >= '1' && key <= '4') {
+            e.preventDefault();
+            var idx = parseInt(key) - 1;
+            if (idx < count) selectChoice(idx);
+        }
+    });
+
+    // 触控方向键
+    document.querySelectorAll('.ctrl-btn[data-dir]').forEach(function(btn) {
+        function handleDir() {
+            if (!playing || paused || answered) return;
+            var dir = btn.dataset.dir;
+            var btns = choicesArea.querySelectorAll('.choice-btn');
+            var count = btns.length;
+            if (dir === 'left') {
+                selectedChoice = (selectedChoice - 1 + count) % count;
+            } else if (dir === 'right') {
+                selectedChoice = (selectedChoice + 1) % count;
+            } else if (dir === 'ok') {
+                confirmChoice();
+                return;
+            } else {
+                return;
+            }
+            btns.forEach(function(b) { b.classList.remove('selected'); });
+            btns[selectedChoice].classList.add('selected');
+        }
+        btn.addEventListener('touchstart', function(e) { e.preventDefault(); handleDir(); });
+        btn.addEventListener('click', function(e) { e.preventDefault(); handleDir(); });
+    });
+})();
+</script>
+</body>
+</html>

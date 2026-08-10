@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>消消乐</title>
+<meta name="game-icon" content="🍎">
+<meta name="game-desc" content="三个相同就消除">
+<meta name="game-tag" content="消除">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.game-header {
+    display: flex;
+    align-items: center;
+    gap: min(4vw, 24px);
+    margin-bottom: min(2vh, 12px);
+    font-size: clamp(14px, 2.5vw, 20px);
+}
+
+.game-header span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.game-header .val {
+    color: #4ecca3;
+    font-weight: bold;
+    min-width: 2em;
+    text-align: center;
+}
+
+#game-canvas {
+    border: 2px solid #4ecca3;
+    border-radius: 8px;
+    background: #16213e;
+    cursor: pointer;
+    touch-action: none;
+}
+
+/* 覆盖层 */
+.overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.78);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h2 {
+    font-size: clamp(24px, 5vw, 42px);
+    margin-bottom: 12px;
+    color: #4ecca3;
+}
+
+.overlay .sub {
+    font-size: clamp(13px, 2.2vw, 18px);
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 8px;
+    text-align: center;
+    max-width: 80vw;
+    line-height: 1.5;
+}
+
+.diff-row {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.diff-btn {
+    padding: clamp(8px, 1.5vw, 14px) clamp(16px, 3vw, 32px);
+    border: 2px solid #4ecca3;
+    border-radius: 12px;
+    background: rgba(78, 204, 163, 0.1);
+    color: #4ecca3;
+    font-size: clamp(14px, 2.5vw, 20px);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.diff-btn:hover, .diff-btn.active {
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.overlay .hint {
+    font-size: clamp(12px, 2vw, 16px);
+    color: rgba(255,255,255,0.5);
+    margin-top: 16px;
+}
+
+.win-text {
+    font-size: clamp(18px, 3.5vw, 30px);
+    color: #ffd700;
+    margin-bottom: 8px;
+}
+
+.stars {
+    font-size: clamp(28px, 6vw, 48px);
+    margin-bottom: 8px;
+}
+
+/* 触控方向键 */
+.touch-controls {
+    display: none;
+    margin-top: min(2vh, 12px);
+}
+
+.touch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, clamp(52px, 12vw, 72px));
+    grid-template-rows: repeat(3, clamp(52px, 12vw, 72px));
+    gap: 4px;
+}
+
+.ctrl-btn {
+    min-width: 44px;
+    min-height: 44px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: clamp(20px, 5vw, 32px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctrl-btn:active {
+    background: rgba(78, 204, 163, 0.3);
+    border-color: #4ecca3;
+}
+
+.ctrl-placeholder { visibility: hidden; }
+
+@media (pointer: coarse) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+    .touch-controls { display: flex; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="game-header">
+    <span>分数: <span class="val" id="score">0</span></span>
+    <span>时间: <span class="val" id="timer">60</span></span>
+    <span>连消: <span class="val" id="combo">0</span></span>
+</div>
+
+<canvas id="game-canvas"></canvas>
+
+<div class="touch-controls">
+    <div class="touch-grid">
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="up">&#9650;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="left">&#9664;</button>
+        <button class="ctrl-btn" data-dir="swap" style="font-size:clamp(14px,3vw,20px);">换</button>
+        <button class="ctrl-btn" data-dir="right">&#9654;</button>
+        <div class="ctrl-placeholder"></div>
+        <button class="ctrl-btn" data-dir="down">&#9660;</button>
+        <div class="ctrl-placeholder"></div>
+    </div>
+</div>
+
+<!-- 开始界面 -->
+<div class="overlay" id="startOverlay">
+    <h2>消消乐</h2>
+    <div class="sub">交换相邻水果，三个以上相同就消除<br>方向键移动，回车交换</div>
+    <div class="diff-row">
+        <button class="diff-btn active" data-diff="easy">简单</button>
+        <button class="diff-btn" data-diff="medium">普通</button>
+        <button class="diff-btn" data-diff="hard">困难</button>
+    </div>
+    <div class="hint">按 回车 开始</div>
+</div>
+
+<!-- 暂停 -->
+<div class="overlay hidden" id="pauseOverlay">
+    <h2>暂停中</h2>
+    <div class="hint">按 空格 继续</div>
+</div>
+
+<!-- 结束 -->
+<div class="overlay hidden" id="endOverlay">
+    <h2>时间到！</h2>
+    <div class="stars" id="endStars"></div>
+    <div class="win-text" id="endStats"></div>
+    <div class="hint">按 回车 再来一局</div>
+</div>
+
+<script>
+(function() {
+    var canvas = document.getElementById('game-canvas');
+    var ctx = canvas.getContext('2d');
+    var scoreEl = document.getElementById('score');
+    var timerEl = document.getElementById('timer');
+    var comboEl = document.getElementById('combo');
+    var startOverlay = document.getElementById('startOverlay');
+    var pauseOverlay = document.getElementById('pauseOverlay');
+    var endOverlay = document.getElementById('endOverlay');
+    var endStars = document.getElementById('endStars');
+    var endStats = document.getElementById('endStats');
+
+    var difficulty = 'easy';
+    var gridSize = 6;
+    var cellSize = 0;
+    var board = [];
+    var cursorR = 0, cursorC = 0;
+    var selectedR = -1, selectedC = -1;
+    var score = 0;
+    var combo = 0;
+    var timeLeft = 60;
+    var timerInterval = null;
+    var paused = false;
+    var playing = false;
+    var animating = false;
+
+    // 水果类型（用 emoji 字符绘制）
+    var FRUITS = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑'];
+    var FRUIT_COLORS = ['#e74c3c', '#f39c12', '#f1c40f', '#8e44ad', '#e91e63', '#ff7043'];
+
+    // 难度选择
+    var diffBtns = document.querySelectorAll('.diff-btn');
+    diffBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            diffBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            difficulty = btn.dataset.diff;
+        });
+    });
+
+    function calcSize() {
+        gridSize = difficulty === 'easy' ? 6 : difficulty === 'medium' ? 7 : 8;
+        var maxW = window.innerWidth * 0.88;
+        var maxH = window.innerHeight * 0.62;
+        cellSize = Math.floor(Math.min(maxW / gridSize, maxH / gridSize));
+        cellSize = Math.max(cellSize, 36);
+        canvas.width = cellSize * gridSize;
+        canvas.height = cellSize * gridSize;
+    }
+
+    function randFruit() {
+        var numTypes = difficulty === 'easy' ? 4 : difficulty === 'medium' ? 5 : 6;
+        return Math.floor(Math.random() * numTypes);
+    }
+
+    function initBoard() {
+        board = [];
+        for (var r = 0; r < gridSize; r++) {
+            var row = [];
+            for (var c = 0; c < gridSize; c++) {
+                var fruit;
+                do {
+                    fruit = randFruit();
+                } while (
+                    (c >= 2 && row[c-1] === fruit && row[c-2] === fruit) ||
+                    (r >= 2 && board[r-1][c] === fruit && board[r-2][c] === fruit)
+                );
+                row.push(fruit);
+            }
+            board.push(row);
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (var r = 0; r < gridSize; r++) {
+            for (var c = 0; c < gridSize; c++) {
+                var x = c * cellSize;
+                var y = r * cellSize;
+
+                // 格子背景
+                ctx.fillStyle = (r + c) % 2 === 0 ? '#1e2d4a' : '#1a2740';
+                ctx.fillRect(x, y, cellSize, cellSize);
+
+                if (board[r][c] >= 0) {
+                    // 绘制水果
+                    var fruit = board[r][c];
+                    var cx = x + cellSize / 2;
+                    var cy = y + cellSize / 2;
+                    var radius = cellSize * 0.35;
+
+                    // 圆形水果
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = FRUIT_COLORS[fruit];
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    // 水果上的标记（区分不同水果）
+                    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                    ctx.font = 'bold ' + Math.floor(cellSize * 0.35) + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    var labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+                    ctx.fillText(labels[fruit], cx, cy + 1);
+                }
+
+                // 选中高亮
+                if (r === selectedR && c === selectedC) {
+                    ctx.strokeStyle = '#ffd700';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+                }
+
+                // 光标
+                if (r === cursorR && c === cursorC) {
+                    ctx.strokeStyle = '#4ecca3';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                    ctx.setLineDash([]);
+                }
+            }
+        }
+    }
+
+    function findMatches() {
+        var matches = [];
+        // 水平
+        for (var r = 0; r < gridSize; r++) {
+            for (var c = 0; c < gridSize - 2; c++) {
+                if (board[r][c] >= 0 && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+                    var len = 3;
+                    while (c + len < gridSize && board[r][c] === board[r][c+len]) len++;
+                    for (var i = 0; i < len; i++) {
+                        matches.push({r: r, c: c + i});
+                    }
+                    c += len - 1;
+                }
+            }
+        }
+        // 垂直
+        for (var c = 0; c < gridSize; c++) {
+            for (var r = 0; r < gridSize - 2; r++) {
+                if (board[r][c] >= 0 && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+                    var len = 3;
+                    while (r + len < gridSize && board[r][c] === board[r+len][c]) len++;
+                    for (var i = 0; i < len; i++) {
+                        matches.push({r: r + i, c: c});
+                    }
+                    r += len - 1;
+                }
+            }
+        }
+        // 去重
+        var unique = {};
+        var result = [];
+        for (var i = 0; i < matches.length; i++) {
+            var key = matches[i].r + ',' + matches[i].c;
+            if (!unique[key]) {
+                unique[key] = true;
+                result.push(matches[i]);
+            }
+        }
+        return result;
+    }
+
+    function removeMatches(matches) {
+        for (var i = 0; i < matches.length; i++) {
+            board[matches[i].r][matches[i].c] = -1;
+        }
+    }
+
+    function dropAndFill() {
+        // 下落
+        for (var c = 0; c < gridSize; c++) {
+            var writeRow = gridSize - 1;
+            for (var r = gridSize - 1; r >= 0; r--) {
+                if (board[r][c] >= 0) {
+                    board[writeRow][c] = board[r][c];
+                    if (writeRow !== r) board[r][c] = -1;
+                    writeRow--;
+                }
+            }
+            // 填充新水果
+            for (var r = writeRow; r >= 0; r--) {
+                board[r][c] = randFruit();
+            }
+        }
+    }
+
+    function processBoard() {
+        var matches = findMatches();
+        if (matches.length === 0) {
+            combo = 0;
+            comboEl.textContent = '0';
+            animating = false;
+            draw();
+            return;
+        }
+
+        combo++;
+        comboEl.textContent = combo;
+        var points = matches.length * 10 * combo;
+        score += points;
+        scoreEl.textContent = score;
+
+        removeMatches(matches);
+        draw();
+
+        setTimeout(function() {
+            dropAndFill();
+            draw();
+            setTimeout(function() {
+                processBoard();
+            }, 200);
+        }, 200);
+    }
+
+    function swap(r1, c1, r2, c2) {
+        var tmp = board[r1][c1];
+        board[r1][c1] = board[r2][c2];
+        board[r2][c2] = tmp;
+    }
+
+    function trySwap() {
+        if (selectedR < 0) return;
+        if (animating) return;
+
+        var dr = Math.abs(cursorR - selectedR);
+        var dc = Math.abs(cursorC - selectedC);
+        if (dr + dc !== 1) {
+            // 不相邻，重新选择
+            selectedR = cursorR;
+            selectedC = cursorC;
+            draw();
+            return;
+        }
+
+        animating = true;
+        swap(selectedR, selectedC, cursorR, cursorC);
+        draw();
+
+        var matches = findMatches();
+        if (matches.length === 0) {
+            // 交换回去
+            setTimeout(function() {
+                swap(selectedR, selectedC, cursorR, cursorC);
+                selectedR = -1;
+                selectedC = -1;
+                animating = false;
+                draw();
+            }, 200);
+        } else {
+            selectedR = -1;
+            selectedC = -1;
+            processBoard();
+        }
+    }
+
+    function moveCursor(dr, dc) {
+        if (animating) return;
+        cursorR = Math.max(0, Math.min(gridSize - 1, cursorR + dr));
+        cursorC = Math.max(0, Math.min(gridSize - 1, cursorC + dc));
+        draw();
+    }
+
+    function selectCell() {
+        if (animating) return;
+        if (selectedR === cursorR && selectedC === cursorC) {
+            selectedR = -1;
+            selectedC = -1;
+        } else if (selectedR >= 0) {
+            trySwap();
+            return;
+        } else {
+            selectedR = cursorR;
+            selectedC = cursorC;
+        }
+        draw();
+    }
+
+    function startTimer() {
+        stopTimer();
+        timeLeft = difficulty === 'easy' ? 90 : difficulty === 'medium' ? 60 : 45;
+        timerEl.textContent = timeLeft;
+        timerInterval = setInterval(function() {
+            timeLeft--;
+            timerEl.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }, 1000);
+    }
+
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    function endGame() {
+        playing = false;
+        stopTimer();
+        var starCount = score >= 500 ? 3 : score >= 200 ? 2 : score >= 50 ? 1 : 0;
+        var starStr = '';
+        for (var i = 0; i < 3; i++) {
+            starStr += i < starCount ? '★' : '☆';
+        }
+        endStars.textContent = starStr;
+        endStats.textContent = '得分 ' + score;
+        endOverlay.classList.remove('hidden');
+    }
+
+    function startGame() {
+        startOverlay.classList.add('hidden');
+        pauseOverlay.classList.add('hidden');
+        endOverlay.classList.add('hidden');
+        paused = false;
+        playing = true;
+        animating = false;
+        score = 0;
+        combo = 0;
+        selectedR = -1;
+        selectedC = -1;
+        cursorR = 0;
+        cursorC = 0;
+        scoreEl.textContent = '0';
+        comboEl.textContent = '0';
+
+        calcSize();
+        initBoard();
+        // 确保初始没有匹配
+        var safety = 0;
+        while (findMatches().length > 0 && safety < 100) {
+            initBoard();
+            safety++;
+        }
+        startTimer();
+        draw();
+    }
+
+    function togglePause() {
+        if (!playing) return;
+        if (paused) {
+            paused = false;
+            pauseOverlay.classList.add('hidden');
+        } else {
+            paused = true;
+            pauseOverlay.classList.remove('hidden');
+        }
+    }
+
+    // 键盘
+    document.addEventListener('keydown', function(e) {
+        var key = e.key;
+
+        if (key === 'Enter') {
+            e.preventDefault();
+            if (!playing || !endOverlay.classList.contains('hidden')) {
+                startGame();
+            } else if (playing && !paused) {
+                selectCell();
+            }
+            return;
+        }
+
+        if (key === ' ' || key === 'Space') {
+            e.preventDefault();
+            if (playing) togglePause();
+            return;
+        }
+
+        if (!playing || paused || animating) return;
+
+        if (key === 'ArrowUp') { e.preventDefault(); moveCursor(-1, 0); }
+        else if (key === 'ArrowDown') { e.preventDefault(); moveCursor(1, 0); }
+        else if (key === 'ArrowLeft') { e.preventDefault(); moveCursor(0, -1); }
+        else if (key === 'ArrowRight') { e.preventDefault(); moveCursor(0, 1); }
+    });
+
+    // Canvas 点击
+    canvas.addEventListener('click', function(e) {
+        if (!playing || paused || animating) return;
+        var rect = canvas.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+        var c = Math.floor(x / cellSize);
+        var r = Math.floor(y / cellSize);
+        if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) {
+            cursorR = r;
+            cursorC = c;
+            selectCell();
+        }
+    });
+
+    // 触控方向键
+    document.querySelectorAll('.ctrl-btn[data-dir]').forEach(function(btn) {
+        function handleDir() {
+            if (!playing || paused || animating) return;
+            var dir = btn.dataset.dir;
+            if (dir === 'up') moveCursor(-1, 0);
+            else if (dir === 'down') moveCursor(1, 0);
+            else if (dir === 'left') moveCursor(0, -1);
+            else if (dir === 'right') moveCursor(0, 1);
+            else if (dir === 'swap') selectCell();
+        }
+        btn.addEventListener('touchstart', function(e) { e.preventDefault(); handleDir(); });
+        btn.addEventListener('click', function(e) { e.preventDefault(); handleDir(); });
+    });
+
+    // 窗口大小变化
+    window.addEventListener('resize', function() {
+        if (playing) {
+            calcSize();
+            draw();
+        }
+    });
+})();
+</script>
+</body>
+</html>
