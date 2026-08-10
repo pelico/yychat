@@ -357,7 +357,7 @@
   // ===== 入场 =====
   enterBtn.addEventListener("click", enter);
   [nickInput, roomInput].forEach(function (el) {
-    el.addEventListener("keydown", function (e) { if (e.key === "Enter") enter(); });
+    el.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) enter(); });
   });
   function enter() {
     nick = nickInput.value.trim() || "匿名";
@@ -454,7 +454,8 @@
   }
   sendBtn.addEventListener("click", send);
   textEl.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // 输入法组合态（中文选词等）不拦截 Enter，否则会打断输入并误发消息
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
       e.preventDefault();
       send();
     }
