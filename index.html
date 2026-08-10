@@ -91,9 +91,9 @@
   .msg .time { font-size: 10px; color: var(--muted); margin: 4px 4px 0; }
 
   /* 大 emoji 消息 */
-  .msg.emoji-only .bubble { background: transparent !important; box-shadow: none; padding: 0; font-size: 288px; line-height: 1.15; }
+  .msg.emoji-only .bubble { background: transparent !important; box-shadow: none; padding: 0; font-size: 180px; line-height: 1.15; }
   .msg.me.emoji-only { align-items: flex-end; }
-  .bubble .big-emoji { font-size: 132px; vertical-align: middle; }
+  .bubble .big-emoji { font-size: 96px; vertical-align: middle; }
 
   /* 图片消息（画板） */
   .msg .bubble img { max-width: 220px; max-height: 240px; border-radius: 10px; display: block; }
@@ -470,9 +470,9 @@
   var flyingCount = 0;
   function flyEmoji(bubble, text, isMe) {
     if (document.hidden) return false;
-    if (flyingCount > 3) return false;
+    if (flyingCount > 8) return false;
     var rect = bubble.getBoundingClientRect();
-    if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
+    if (rect.bottom < -10 || rect.top > window.innerHeight + 10) return false;
     var endX = rect.left + rect.width / 2;
     var endY = rect.top + rect.height / 2;
 
@@ -620,9 +620,11 @@
 
     messagesEl.appendChild(wrap);
     maybeScroll();
-    // 插入 DOM 并滚动后再启动飞入（此时才能取到气泡的真实位置和字号）
+    // 延迟一帧再启动飞入，确保浏览器布局完成
     if (emojiOnly) {
-      if (!flyEmoji(bubble, text, isMe)) bubble.style.opacity = ""; // 未能播放则直接显示
+      requestAnimationFrame(function () {
+        if (!flyEmoji(bubble, text, isMe)) bubble.style.opacity = "";
+      });
     }
     // 限制消息数量，避免过长
     while (messagesEl.children.length > 300) {
