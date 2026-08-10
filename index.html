@@ -462,11 +462,27 @@
     connect();
   }
 
-  // ===== 浏览器通知 =====
+  // ===== 浏览器通知（通过 Service Worker，点击可聚焦已打开页面）=====
+  var swReg = null;
   function requestNotifyPerm() {
     try {
       if (!("Notification" in window)) return;
-      if (Notification.permission === "default") Notification.requestPermission();
+      // 先注册 Service Worker（用于处理通知点击）
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          swReg = reg;
+          // 监听 SW 发来的点击消息，切回聊天视图
+          navigator.serviceWorker.addEventListener("message", function (ev) {
+            if (ev.data && ev.data.type === "notif-click") switchToChat();
+          });
+          if (Notification.permission === "default") Notification.requestPermission();
+        }).catch(function () {
+          // SW 注册失败，回退到原生通知
+          if (Notification.permission === "default") Notification.requestPermission();
+        });
+      } else {
+        if (Notification.permission === "default") Notification.requestPermission();
+      }
     } catch (e) {}
   }
   function notify(title, body) {
@@ -476,25 +492,29 @@
       // 仅当页面隐藏或不在聊天视图时弹通知，避免打扰当前聊天
       var notInChat = document.hidden || (chatView && chatView.style.display === "none");
       if (!notInChat) return;
-      var n = new Notification(title, {
-        body: body,
-        tag: "yychat-msg",
-        renotify: true
+      var opts = { body: body, tag: "yychat-msg", renotify: true, icon: undefined };
+      // 优先用 SW 的 showNotification（点击行为受 SW 控制，能聚焦已开页面）
+      if (swReg) {
+        swReg.showNotification(title, opts);
+      } else {
+        var n = new Notification(title, opts);
+        n.onclick = function () {
+          try { window.focus(); } catch (e) {}
+          switchToChat();
+          n.close();
+        };
+        setTimeout(function () { try { n.close(); } catch (e) {} }, 4000);
+      }
+    } catch (e) {}
+  }
+  function switchToChat() {
+    try {
+      if (!chatView) return;
+      chatView.style.display = "";
+      gamesView.classList.remove("show");
+      navBtns.forEach(function (b) {
+        b.classList.toggle("active", b.getAttribute("data-view") === "chat");
       });
-      n.onclick = function () {
-        try { window.focus(); } catch (e) {}
-        // 切回聊天视图
-        if (chatView) {
-          chatView.style.display = "";
-          gamesView.classList.remove("show");
-          navBtns.forEach(function (b) {
-            b.classList.toggle("active", b.getAttribute("data-view") === "chat");
-          });
-        }
-        n.close();
-      };
-      // 4 秒后自动关闭
-      setTimeout(function () { try { n.close(); } catch (e) {} }, 4000);
     } catch (e) {}
   }
 
