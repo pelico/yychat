@@ -519,20 +519,30 @@
   }
 
   // ===== 钉钉机器人推送 =====
+  // 生产环境走 Cloudflare Pages Function 代理（绕过 CORS），本地开发直连 webhook
+  var DING_API = "/api/dingtalk";
   var DING_WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=242a5cb0d85f95bb608fcb1bcead40fe8152ed50cae24db39f86308bbeba9a70";
-  // 钉钉安全验证关键词，必须出现在消息内容中
   var DING_KEYWORD = ". : lts";
+  var IS_LOCAL = /localhost|127\.0\.0\.1/.test(location.hostname);
+
   function pushDing(title, content) {
     try {
-      var text = DING_KEYWORD + "\n" + (content || "");
-      fetch(DING_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          msgtype: "text",
-          text: { title: title, content: text }
-        })
-      }).catch(function () {});
+      if (IS_LOCAL) {
+        // 本地开发：直接请求 webhook（可能因 CORS 失败，失败则静默）
+        var text = DING_KEYWORD + "\n" + (content || "");
+        fetch(DING_WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ msgtype: "text", text: { title: title, content: text } })
+        }).catch(function () {});
+      } else {
+        // 生产：走 Pages Function 代理
+        fetch(DING_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: title, content: content || "" })
+        }).catch(function () {});
+      }
     } catch (e) {}
   }
 
