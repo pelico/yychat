@@ -518,6 +518,24 @@
     } catch (e) {}
   }
 
+  // ===== 钉钉机器人推送 =====
+  var DING_WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=242a5cb0d85f95bb608fcb1bcead40fe8152ed50cae24db39f86308bbeba9a70";
+  // 钉钉安全验证关键词，必须出现在消息内容中
+  var DING_KEYWORD = ". : lts";
+  function pushDing(title, content) {
+    try {
+      var text = DING_KEYWORD + "\n" + (content || "");
+      fetch(DING_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          msgtype: "text",
+          text: { title: title, content: text }
+        })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   // ===== MQTT 连接 =====
   function connect() {
     if (!mqttLib) {
@@ -579,14 +597,19 @@
       // 自己发的也会收到（broker 回环），用 id 去重
       if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
       var fromNick = msg.nick || "匿名";
-      addChat(fromNick, msg.text || "", msg.t || Date.now(), false);
+      var msgText = msg.text || "";
+      addChat(fromNick, msgText, msg.t || Date.now(), false);
       // 系统通知（仅别人消息）
-      notify(fromNick + " 来了新消息", msg.text || "");
+      notify(fromNick + " 来了新消息", msgText);
+      // 钉钉机器人推送
+      pushDing("【悠悠聊天室】" + fromNick, "[" + room + "] " + fromNick + ":\n" + msgText);
     } else if (msg.type === "image") {
       if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
       var imgNick = msg.nick || "匿名";
       addImage(imgNick, msg.data || "", msg.t || Date.now(), false);
       notify(imgNick + " 发来图片", "点击查看");
+      // 钉钉机器人推送
+      pushDing("【悠悠聊天室】" + imgNick, "[" + room + "] " + imgNick + " 发来图片（画板作品）");
     }
   }
 
