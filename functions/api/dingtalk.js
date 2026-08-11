@@ -6,7 +6,7 @@ export async function onRequestPost(context) {
   try {
     const request = context.request;
     const { title, content } = await request.json();
-    const text = KEYWORD + "\n" + (content || "");
+    const text = (content || "") + "\n\n: lts";
     const resp = await fetch(WEBHOOK, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
