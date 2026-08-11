@@ -136,7 +136,19 @@
   }
   .msg.me .bubble { background: var(--me); border-bottom-right-radius: 4px; color: #fff; }
   .msg.other .bubble { background: var(--other); border-bottom-left-radius: 4px; }
-  .msg .time { font-size: 10px; color: var(--muted); margin: 4px 4px 0; }
+  .msg .time { font-size: 10px; color: var(--muted); margin: 4px 4px 0; display: flex; align-items: center; gap: 4px; }
+  .msg .ding-icon {
+    display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px;
+    border-radius: 50%; font-size: 9px; line-height: 1; cursor: help; transition: all .2s;
+    opacity: 0; transform: scale(.8);
+  }
+  .msg .ding-icon.show { opacity: 1; transform: scale(1); }
+  .msg .ding-icon.pending { background: rgba(148,163,184,.3); color: #94a3b8; }
+  .msg .ding-icon.success { background: rgba(34,197,94,.25); color: #22c55e; }
+  .msg .ding-icon.error { background: rgba(239,68,68,.25); color: #ef4444; }
+  .msg .ding-icon.error:hover { background: rgba(239,68,68,.4); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg .ding-icon.pending::before { animation: spin 1s linear infinite; }
 
   /* 大 emoji 消息 */
   .msg.emoji-only .bubble { background: transparent !important; box-shadow: none; padding: 0; font-size: 180px; line-height: 1.15; }
@@ -519,31 +531,77 @@
   }
 
   // ===== 钉钉机器人推送 =====
-  // 生产环境走 Cloudflare Pages Function 代理（绕过 CORS），本地开发直连 webhook
   var DING_API = "/api/dingtalk";
   var DING_WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=242a5cb0d85f95bb608fcb1bcead40fe8152ed50cae24db39f86308bbeba9a70";
   var DING_KEYWORD = ". : lts";
   var IS_LOCAL = /localhost|127\.0\.0\.1/.test(location.hostname);
 
-  function pushDing(title, content) {
+  // 创建钉钉状态指示器
+  function createDingIcon() {
+    var el = document.createElement("span");
+    el.className = "ding-icon pending";
+    el.textContent = "●";
+    el.title = "推送到钉钉中…";
+    return el;
+  }
+  function setDingStatus(icon, status, msg) {
+    icon.classList.remove("pending", "success", "error");
+    if (status === "success") {
+      icon.classList.add("success");
+      icon.textContent = "✓";
+      icon.title = msg || "已推送到钉钉";
+    } else if (status === "error") {
+      icon.classList.add("error");
+      icon.textContent = "✗";
+      icon.title = msg || "推送失败";
+    } else {
+      icon.classList.add("pending");
+      icon.textContent = "●";
+      icon.title = msg || "推送中…";
+    }
+    icon.classList.add("show");
+  }
+
+  // 推送到钉钉，返回 Promise；dingIcon 存在则更新 UI
+  function pushDing(title, content, dingIcon) {
+    var updateIcon = function (status, msg) {
+      if (dingIcon) setDingStatus(dingIcon, status, msg);
+    };
+    updateIcon("pending", "推送中…");
     try {
       if (IS_LOCAL) {
-        // 本地开发：直接请求 webhook（可能因 CORS 失败，失败则静默）
         var text = DING_KEYWORD + "\n" + (content || "");
         fetch(DING_WEBHOOK, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ msgtype: "text", text: { title: title, content: text } })
-        }).catch(function () {});
+        }).then(function (resp) { return resp.json(); }).then(function (data) {
+          if (data && data.errcode === 0) {
+            updateIcon("success", "已推送到钉钉");
+          } else {
+            updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
+          }
+        }).catch(function (e) {
+          updateIcon("error", "推送失败（CORS或网络）: " + (e.message || String(e)));
+        });
       } else {
-        // 生产：走 Pages Function 代理
         fetch(DING_API, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: title, content: content || "" })
-        }).catch(function () {});
+        }).then(function (resp) { return resp.json(); }).then(function (data) {
+          if (data && data.errcode === 0) {
+            updateIcon("success", "已推送到钉钉");
+          } else {
+            updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
+          }
+        }).catch(function (e) {
+          updateIcon("error", "推送失败（网络或Function未部署）: " + (e.message || String(e)));
+        });
       }
-    } catch (e) {}
+    } catch (e) {
+      updateIcon("error", "推送异常: " + String(e));
+    }
   }
 
   // ===== MQTT 连接 =====
@@ -604,22 +662,20 @@
     if (msg.type === "sys") {
       addSys(msg.text || "");
     } else if (msg.type === "chat") {
-      // 自己发的也会收到（broker 回环），用 id 去重
       if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
       var fromNick = msg.nick || "匿名";
       var msgText = msg.text || "";
-      addChat(fromNick, msgText, msg.t || Date.now(), false);
-      // 系统通知（仅别人消息）
+      var dingIcon = createDingIcon();
+      addChat(fromNick, msgText, msg.t || Date.now(), false, dingIcon);
       notify(fromNick + " 来了新消息", msgText);
-      // 钉钉机器人推送
-      pushDing("【悠悠聊天室】" + fromNick, "[" + room + "] " + fromNick + ":\n" + msgText);
+      pushDing("【悠悠聊天室】" + fromNick, "[" + room + "] " + fromNick + ":\n" + msgText, dingIcon);
     } else if (msg.type === "image") {
       if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
       var imgNick = msg.nick || "匿名";
-      addImage(imgNick, msg.data || "", msg.t || Date.now(), false);
+      var dingIcon = createDingIcon();
+      addImage(imgNick, msg.data || "", msg.t || Date.now(), false, dingIcon);
       notify(imgNick + " 发来图片", "点击查看");
-      // 钉钉机器人推送
-      pushDing("【悠悠聊天室】" + imgNick, "[" + room + "] " + imgNick + " 发来图片（画板作品）");
+      pushDing("【悠悠聊天室】" + imgNick, "[" + room + "] " + imgNick + " 发来图片（画板作品）", dingIcon);
     }
   }
 
@@ -779,7 +835,7 @@
   }
 
   // ===== 渲染消息 =====
-  function addChat(who, text, t, isMe) {
+  function addChat(who, text, t, isMe, dingIcon) {
     var wrap = document.createElement("div");
     wrap.className = "msg " + (isMe ? "me" : "other");
     var emojiOnly = isEmojiOnly(text);
@@ -793,8 +849,8 @@
     var bubble = document.createElement("div");
     bubble.className = "bubble";
     if (emojiOnly) {
-      bubble.textContent = text;   // 纯 emoji，直接放原字符，CSS 放大
-      bubble.style.opacity = "0";  // 先隐藏，等飞入动效结束后再弹出显示
+      bubble.textContent = text;
+      bubble.style.opacity = "0";
     } else {
       bubble.innerHTML = renderEmoji(text);
     }
@@ -803,11 +859,11 @@
     var timeEl = document.createElement("div");
     timeEl.className = "time";
     timeEl.textContent = nowTime();
+    if (dingIcon) timeEl.appendChild(dingIcon);
     wrap.appendChild(timeEl);
 
     messagesEl.appendChild(wrap);
     maybeScroll();
-    // 延迟一帧再启动飞入，确保浏览器布局完成；失败则直接平滑弹出
     if (emojiOnly) {
       requestAnimationFrame(function () {
         if (!flyEmoji(bubble, text, isMe)) {
@@ -818,13 +874,12 @@
         }
       });
     }
-    // 限制消息数量，避免过长
     while (messagesEl.children.length > 300) {
       messagesEl.removeChild(messagesEl.firstChild);
     }
   }
 
-  function addImage(who, dataUrl, t, isMe) {
+  function addImage(who, dataUrl, t, isMe, dingIcon) {
     var wrap = document.createElement("div");
     wrap.className = "msg " + (isMe ? "me" : "other");
     var whoEl = document.createElement("div");
@@ -836,13 +891,13 @@
     var img = document.createElement("img");
     img.src = dataUrl;
     img.alt = "画板作品";
-    // 图片加载完成后再次滚动到底部，避免图片撑开后需手动下滑
     img.addEventListener("load", function () { maybeScroll(); });
     bubble.appendChild(img);
     wrap.appendChild(bubble);
     var timeEl = document.createElement("div");
     timeEl.className = "time";
     timeEl.textContent = nowTime();
+    if (dingIcon) timeEl.appendChild(dingIcon);
     wrap.appendChild(timeEl);
     messagesEl.appendChild(wrap);
     maybeScroll();
