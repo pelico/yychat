@@ -1,7 +1,15 @@
 // Cloudflare Pages Function: 钉钉 webhook 代理（绕过浏览器 CORS 限制）
 // 部署后路径: /api/dingtalk
 export default {
-  async fetch(request) {
+  async onRequest(request) {
+    // 允许 POST
+    if (request.method === "POST") {
+      return this.onPost(request);
+    }
+    // GET 也支持（方便测试）
+    return this.onGet(request);
+  },
+  async onPost(request) {
     const WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=242a5cb0d85f95bb608fcb1bcead40fe8152ed50cae24db39f86308bbeba9a70";
     const KEYWORD = ". : lts";
     try {
@@ -24,5 +32,10 @@ export default {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
+  },
+  async onGet(request) {
+    return new Response(JSON.stringify({ ok: true, msg: "dingtalk proxy ready, use POST" }), {
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
   }
 };
