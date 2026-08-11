@@ -570,7 +570,7 @@
     updateIcon("pending", "推送中…");
     try {
       if (IS_LOCAL) {
-        var text = (content || "") + "\n\n: lts";
+        var text = content || "";
         fetch(DING_WEBHOOK, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
