@@ -562,6 +562,23 @@
     console.log("[钉钉推送]", status, msg);
   }
 
+  // 跨标签页广播：一个标签页开始推钉钉前通知其他标签页放弃
+  var _dingBC = null;
+  try { _dingBC = new BroadcastChannel("yychat.ding"); } catch (e) {}
+  if (_dingBC) {
+    _dingBC.onmessage = function (e) {
+      if (e && e.data && e.data.type === "pushing") {
+        // 别的标签页正在推这个 tag，立即标记本地为已推
+        try {
+          var KEY = "yychat.ding.pushed.v1";
+          var pushed = JSON.parse(localStorage.getItem(KEY) || "{}");
+          pushed[e.data.tag] = Date.now() + 180000;
+          localStorage.setItem(KEY, JSON.stringify(pushed));
+        } catch (err) {}
+      }
+    };
+  }
+
   // 推送到钉钉；dingIcon 存在则更新 UI；msgId 用作去重 tag
   function pushDing(title, content, dingIcon, msgId) {
     var tag = msgId || ("t" + Date.now() + "_" + Math.random().toString(36).slice(2, 6));
@@ -573,54 +590,67 @@
       var KEY = "yychat.ding.pushed.v1";
       var pushed = {};
       try { pushed = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
-      // 清理过期
       var now = Date.now();
       Object.keys(pushed).forEach(function (k) { if (pushed[k] < now) delete pushed[k]; });
       if (pushed[tag]) { updateIcon("success", "已推（去重）"); return; }
-      pushed[tag] = now + 180000; // 3 分钟
-      localStorage.setItem(KEY, JSON.stringify(pushed));
     } catch (e) {}
-    updateIcon("pending", "推送中…");
-    try {
-      var body = { title: title, content: content || "", tag: tag };
-      if (IS_LOCAL) {
-        var dingBody = { msgtype: "text", text: { title: title, content: content || "" }, at: { isAtAll: false } };
-        fetch(DING_WEBHOOK, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dingBody)
-        }).then(function (resp) { return resp.json(); }).then(function (data) {
-          if (data && data.errcode === 0) {
-            updateIcon("success", "已推送到钉钉");
-          } else {
+    // 加随机小延迟（30-200ms）错开多标签页的并发到达，防止 localStorage 竞态
+    var delay = 30 + Math.floor(Math.random() * 170);
+    setTimeout(function () {
+      // 再次检查，此时先执行的标签页应该已经写入了 tag
+      try {
+        var KEY2 = "yychat.ding.pushed.v1";
+        var pushed2 = JSON.parse(localStorage.getItem(KEY2) || "{}");
+        var now2 = Date.now();
+        Object.keys(pushed2).forEach(function (k) { if (pushed2[k] < now2) delete pushed2[k]; });
+        if (pushed2[tag]) { updateIcon("success", "已推（去重）"); return; }
+        // 写入"推送中"标记 + 广播给其他标签页
+        pushed2[tag] = now2 + 180000;
+        localStorage.setItem(KEY2, JSON.stringify(pushed2));
+        if (_dingBC) _dingBC.postMessage({ type: "pushing", tag: tag });
+      } catch (e) {}
+      updateIcon("pending", "推送中…");
+      try {
+        var body = { title: title, content: content || "", tag: tag };
+        if (IS_LOCAL) {
+          var dingBody = { msgtype: "text", text: { title: title, content: content || "" }, at: { isAtAll: false } };
+          fetch(DING_WEBHOOK, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dingBody)
+          }).then(function (resp) { return resp.json(); }).then(function (data) {
+            if (data && data.errcode === 0) {
+              updateIcon("success", "已推送到钉钉");
+            } else {
+              _unpush(tag);
+              updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
+            }
+          }).catch(function (e) {
             _unpush(tag);
-            updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
-          }
-        }).catch(function (e) {
-          _unpush(tag);
-          updateIcon("error", "推送失败（CORS或网络）: " + (e.message || String(e)));
-        });
-      } else {
-        fetch(DING_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        }).then(function (resp) { return resp.json(); }).then(function (data) {
-          if (data && data.errcode === 0) {
-            updateIcon("success", "已推送到钉钉");
-          } else {
+            updateIcon("error", "推送失败（CORS或网络）: " + (e.message || String(e)));
+          });
+        } else {
+          fetch(DING_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          }).then(function (resp) { return resp.json(); }).then(function (data) {
+            if (data && data.errcode === 0) {
+              updateIcon("success", "已推送到钉钉");
+            } else {
+              _unpush(tag);
+              updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
+            }
+          }).catch(function (e) {
             _unpush(tag);
-            updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
-          }
-        }).catch(function (e) {
-          _unpush(tag);
-          updateIcon("error", "推送失败（网络或Function未部署）: " + (e.message || String(e)));
-        });
+            updateIcon("error", "推送失败（网络或Function未部署）: " + (e.message || String(e)));
+          });
+        }
+      } catch (e) {
+        _unpush(tag);
+        updateIcon("error", "推送异常: " + String(e));
       }
-    } catch (e) {
-      _unpush(tag);
-      updateIcon("error", "推送异常: " + String(e));
-    }
+    }, delay);
   }
   function _unpush(tag) {
     try {
