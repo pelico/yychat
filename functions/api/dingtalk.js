@@ -30,7 +30,17 @@ function sleep(ms) {
 }
 
 export async function onRequestPost(context) {
-  const WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=242a5cb0d85f95bb608fcb1bcead40fe8152ed50cae24db39f86308bbeba9a70";
+  // Webhook URL 只通过 Cloudflare Pages 环境变量注入，不在代码中硬编码
+  // 后台设置路径：Pages → 项目 → Settings → Environment variables → Production → Add
+  //   Name: DINGTALK_WEBHOOK
+  //   Value: https://oapi.dingtalk.com/robot/send?access_token=你的token
+  const WEBHOOK = context.env && context.env.DINGTALK_WEBHOOK;
+  if (!WEBHOOK) {
+    return new Response(JSON.stringify({ errcode: -3, errmsg: "DINGTALK_WEBHOOK 环境变量未配置，请在 Cloudflare Pages 后台设置" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
+  }
   try {
     const request = context.request;
     const { title, content, tag } = await request.json();

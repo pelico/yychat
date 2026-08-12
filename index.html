@@ -530,10 +530,8 @@
   }
 
   // ===== 钉钉机器人推送 =====
+  // 安全：webhook access_token 只存在服务端环境变量，前端只走 /api/dingtalk 代理
   var DING_API = "/api/dingtalk";
-  var DING_WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=242a5cb0d85f95bb608fcb1bcead40fe8152ed50cae24db39f86308bbeba9a70";
-  var DING_KEYWORD = ". : lts";
-  var IS_LOCAL = /localhost|127\.0\.0\.1/.test(location.hostname);
 
   // 创建钉钉状态指示器
   function createDingIcon() {
@@ -581,40 +579,23 @@
     updateIcon("pending", "推送中…");
     try {
       var body = { title: title, content: content || "", tag: tag };
-      if (IS_LOCAL) {
-        var dingBody = { msgtype: "text", text: { title: title, content: content || "" }, at: { isAtAll: false } };
-        fetch(DING_WEBHOOK, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dingBody)
-        }).then(function (resp) { return resp.json(); }).then(function (data) {
-          if (data && data.errcode === 0) {
-            updateIcon(data.deduplicated ? "success" : "success", data.deduplicated ? "已推（去重）" : "已推送到钉钉");
-          } else {
-            _unpush(tag);
-            updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
-          }
-        }).catch(function (e) {
+      // 统一走服务端代理 /api/dingtalk，前端不持有 webhook token
+      // 本地调试也请用 wrangler pages dev（或等效方式）启动，确保 Function 可用
+      fetch(DING_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (resp) { return resp.json(); }).then(function (data) {
+        if (data && data.errcode === 0) {
+          updateIcon("success", data.deduplicated ? "已推（去重）" : "已推送到钉钉");
+        } else {
           _unpush(tag);
-          updateIcon("error", "推送失败（CORS或网络）: " + (e.message || String(e)));
-        });
-      } else {
-        fetch(DING_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        }).then(function (resp) { return resp.json(); }).then(function (data) {
-          if (data && data.errcode === 0) {
-            updateIcon("success", data.deduplicated ? "已推（去重）" : "已推送到钉钉");
-          } else {
-            _unpush(tag);
-            updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
-          }
-        }).catch(function (e) {
-          _unpush(tag);
-          updateIcon("error", "推送失败（网络或Function未部署）: " + (e.message || String(e)));
-        });
-      }
+          updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
+        }
+      }).catch(function (e) {
+        _unpush(tag);
+        updateIcon("error", "推送失败（网络或Function未部署）: " + (e.message || String(e)));
+      });
     } catch (e) {
       _unpush(tag);
       updateIcon("error", "推送异常: " + String(e));
