@@ -562,46 +562,73 @@
     console.log("[钉钉推送]", status, msg);
   }
 
-  // 推送到钉钉，返回 Promise；dingIcon 存在则更新 UI
-  function pushDing(title, content, dingIcon) {
+  // 推送到钉钉；dingIcon 存在则更新 UI；msgId 用作去重 tag
+  function pushDing(title, content, dingIcon, msgId) {
+    var tag = msgId || ("t" + Date.now() + "_" + Math.random().toString(36).slice(2, 6));
     var updateIcon = function (status, msg) {
       if (dingIcon) setDingStatus(dingIcon, status, msg);
     };
+    // 跨标签页去重：localStorage 存已推 tag，过期时间 3 分钟
+    try {
+      var KEY = "yychat.ding.pushed.v1";
+      var pushed = {};
+      try { pushed = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+      // 清理过期
+      var now = Date.now();
+      Object.keys(pushed).forEach(function (k) { if (pushed[k] < now) delete pushed[k]; });
+      if (pushed[tag]) { updateIcon("success", "已推（去重）"); return; }
+      pushed[tag] = now + 180000; // 3 分钟
+      localStorage.setItem(KEY, JSON.stringify(pushed));
+    } catch (e) {}
     updateIcon("pending", "推送中…");
     try {
+      var body = { title: title, content: content || "", tag: tag };
       if (IS_LOCAL) {
-        var text = content || "";
+        var dingBody = { msgtype: "text", text: { title: title, content: content || "" }, at: { isAtAll: false } };
         fetch(DING_WEBHOOK, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ msgtype: "text", text: { title: title, content: text } })
+          body: JSON.stringify(dingBody)
         }).then(function (resp) { return resp.json(); }).then(function (data) {
           if (data && data.errcode === 0) {
             updateIcon("success", "已推送到钉钉");
           } else {
+            _unpush(tag);
             updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
           }
         }).catch(function (e) {
+          _unpush(tag);
           updateIcon("error", "推送失败（CORS或网络）: " + (e.message || String(e)));
         });
       } else {
         fetch(DING_API, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: title, content: content || "" })
+          body: JSON.stringify(body)
         }).then(function (resp) { return resp.json(); }).then(function (data) {
           if (data && data.errcode === 0) {
             updateIcon("success", "已推送到钉钉");
           } else {
+            _unpush(tag);
             updateIcon("error", "钉钉返回错误: " + (data.errmsg || "未知"));
           }
         }).catch(function (e) {
+          _unpush(tag);
           updateIcon("error", "推送失败（网络或Function未部署）: " + (e.message || String(e)));
         });
       }
     } catch (e) {
+      _unpush(tag);
       updateIcon("error", "推送异常: " + String(e));
     }
+  }
+  function _unpush(tag) {
+    try {
+      var KEY = "yychat.ding.pushed.v1";
+      var pushed = JSON.parse(localStorage.getItem(KEY) || "{}");
+      delete pushed[tag];
+      localStorage.setItem(KEY, JSON.stringify(pushed));
+    } catch (e) {}
   }
 
   // ===== MQTT 连接 =====
@@ -662,22 +689,37 @@
     if (msg.type === "sys") {
       addSys(msg.text || "");
     } else if (msg.type === "chat") {
-      if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
+      var isSelf = msg.id && lastSentId === msg.id;
+      if (isSelf) lastSentId = null;
       var fromNick = msg.nick || "匿名";
       var msgText = msg.text || "";
-      console.log("[onMessage] 收到消息:", fromNick, msgText);
-      var dingIcon = createDingIcon();
-      addChat(fromNick, msgText, msg.t || Date.now(), false, dingIcon);
-      notify(fromNick + " 来了新消息", msgText);
-      pushDing("【悠悠聊天室】" + fromNick, "[" + room + "] " + fromNick + ":\n" + msgText, dingIcon);
+      console.log("[onMessage] 收到消息:", fromNick, msgText, "isSelf:", isSelf);
+      // 只有别人的消息才渲染 UI（自己的发送时已渲染过）
+      var dingIcon;
+      if (!isSelf) {
+        dingIcon = createDingIcon();
+        addChat(fromNick, msgText, msg.t || Date.now(), false, dingIcon);
+        notify(fromNick + " 来了新消息", msgText);
+      } else {
+        // 自己的消息也推钉钉，用 msg.id 做 tag 去重
+        dingIcon = null; // 自己的消息不显示钉钉图标
+      }
+      // 所有消息都推钉钉（tag 去重）
+      pushDing("【悠悠聊天室】" + fromNick, "[" + room + "] " + fromNick + ":\n" + msgText, dingIcon, msg.id);
     } else if (msg.type === "image") {
-      if (msg.id && lastSentId === msg.id) { lastSentId = null; return; }
+      var isSelfImg = msg.id && lastSentId === msg.id;
+      if (isSelfImg) lastSentId = null;
       var imgNick = msg.nick || "匿名";
-      console.log("[onMessage] 收到图片:", imgNick);
-      var dingIcon = createDingIcon();
-      addImage(imgNick, msg.data || "", msg.t || Date.now(), false, dingIcon);
-      notify(imgNick + " 发来图片", "点击查看");
-      pushDing("【悠悠聊天室】" + imgNick, "[" + room + "] " + imgNick + " 发来图片（画板作品）", dingIcon);
+      console.log("[onMessage] 收到图片:", imgNick, "isSelf:", isSelfImg);
+      var dingIcon;
+      if (!isSelfImg) {
+        dingIcon = createDingIcon();
+        addImage(imgNick, msg.data || "", msg.t || Date.now(), false, dingIcon);
+        notify(imgNick + " 发来图片", "点击查看");
+      } else {
+        dingIcon = null;
+      }
+      pushDing("【悠悠聊天室】" + imgNick, "[" + room + "] " + imgNick + " 发来图片（画板作品）", dingIcon, msg.id);
     }
   }
 
