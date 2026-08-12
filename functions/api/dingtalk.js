@@ -1,9 +1,13 @@
 // Cloudflare Pages Function: 钉钉 webhook 代理（服务端全局去重）
-// 用 Cache API 跨边缘实例共享去重状态；本实例内存做 L1 本地缓存
+// 去重策略：
+// L1: 本实例内存 Map（同实例内 1us 级命中）
+// L2: Cache API（同边缘节点共享，跨实例但同区域）
+// L3: 入口随机延迟 50-400ms（打散跨边缘节点并发到达，给 L2 写入留窗口）
+// L4: CAS 原子锁（cache.put 写入 pending 标记 → 再读一次验证确实是自己写的 → 才推钉钉）
 
-const CACHE_TTL = 3 * 60; // 3 分钟（Cache API 用秒）
+const CACHE_TTL = 3 * 60; // 秒
 const L1_MAX = 200;
-let _l1 = new Map(); // L1 本地内存缓存：key -> expireAt(ms)
+let _l1 = new Map();
 
 function l1Hit(key) {
   const now = Date.now();
@@ -21,6 +25,10 @@ function l1Hit(key) {
   return false;
 }
 
+function sleep(ms) {
+  return new Promise(res => setTimeout(res, ms));
+}
+
 export async function onRequestPost(context) {
   const WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=242a5cb0d85f95bb608fcb1bcead40fe8152ed50cae24db39f86308bbeba9a70";
   try {
@@ -29,47 +37,75 @@ export async function onRequestPost(context) {
     const text = content || "";
     const dedupKey = tag || ("h" + hashStr(text));
 
-    // L1：本地内存（同实例内最快，1-2ms）
+    // L3：入口随机延迟 50-400ms，打散跨边缘节点并发
+    // 同一消息的两次请求从不同浏览器/设备到达 Cloudflare，到达时间已经不同，
+    // 再加随机延迟后先到达的有足够时间写入 L2 Cache，后到达的会命中去重
+    const entryDelay = 50 + Math.floor(Math.random() * 351);
+    await sleep(entryDelay);
+
+    // L1
     if (l1Hit(dedupKey)) {
-      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true, via: "l1" }), {
+      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true, via: "l1", d: entryDelay }), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
 
-    // L2：Cache API（跨边缘实例共享，所有浏览器/设备都命中）
-    // 构造一个用于 cache 的虚拟 GET 请求（Cache API 只存 GET 响应）
-    const cacheKey = new Request("https://ding-dedup.local/" + encodeURIComponent(dedupKey), {
-      method: "GET",
-      headers: { "CF-Cache-Status": "yychat-dingtalk-dedup" }
-    });
+    // L2
     const cache = caches.default;
+    const cacheURL = "https://ding-dedup.local/" + encodeURIComponent(dedupKey);
+    const cacheKey = new Request(cacheURL, { method: "GET" });
     let cachedResp = null;
     try { cachedResp = await cache.match(cacheKey); } catch (e) {}
     if (cachedResp) {
-      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true, via: "l2" }), {
+      _l1.set(dedupKey, Date.now() + CACHE_TTL * 1000);
+      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true, via: "l2", d: entryDelay }), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
-    // 写入 Cache API（存个空响应，通过 Cache-Control 设置 TTL）
-    try {
-      const cacheResp = new Response("1", {
-        headers: { "Cache-Control": `public, max-age=${CACHE_TTL}`, "Content-Type": "text/plain" }
+
+    // L4 CAS 原子锁：先写 "pending" 标记 → 再读验证是自己写的 → 才推钉钉
+    const lockToken = Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+    const lockResp = new Response(lockToken, {
+      headers: { "Cache-Control": `public, max-age=${CACHE_TTL}`, "Content-Type": "text/plain" }
+    });
+    await cache.put(cacheKey, lockResp);
+    // 等 2ms 让网络上的 in-flight cache.write 完成
+    await sleep(2);
+    // 验证写入内容是不是自己的 token
+    let recheck = null;
+    try { recheck = await cache.match(cacheKey); } catch (e) {}
+    let wrote = false;
+    if (recheck) {
+      let t = "";
+      try { t = await recheck.text(); } catch (e) {}
+      wrote = (t === lockToken);
+    }
+    if (!wrote) {
+      // 不是自己写的 → 并发请求抢了先 → 去重
+      _l1.set(dedupKey, Date.now() + CACHE_TTL * 1000);
+      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true, via: "l4", d: entryDelay }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
-      context.waitUntil(cache.put(cacheKey, cacheResp));
-    } catch (e) {}
+    }
 
     // 真正推钉钉
-    const resp = await fetch(WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ msgtype: "text", text: { title: title || "消息", content: text } })
-    });
-    const data = await resp.json();
-    // 失败时清理 L1 和 L2 缓存，可重试
+    let data;
+    try {
+      const resp = await fetch(WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ msgtype: "text", text: { title: title || "消息", content: text } })
+      });
+      data = await resp.json();
+    } catch (e) {
+      data = { errcode: -2, errmsg: "fetch error: " + String(e) };
+    }
+
     if (data && data.errcode !== 0) {
       _l1.delete(dedupKey);
       try { context.waitUntil(cache.delete(cacheKey)); } catch (e) {}
     }
+
     return new Response(JSON.stringify(data), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
