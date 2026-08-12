@@ -693,31 +693,22 @@
       var msgText = msg.text || "";
       console.log("[onMessage] 收到消息:", fromNick, msgText, "isSelf:", isSelf);
       // 只有别人的消息才渲染 UI（自己的发送时已渲染过）
-      var dingIcon;
+      // 推送钉钉只由发送方负责，接收方不再调用 pushDing，彻底避免 N 端并发重复推送
       if (!isSelf) {
-        dingIcon = createDingIcon();
-        addChat(fromNick, msgText, msg.t || Date.now(), false, dingIcon);
+        // 接收方消息不显示钉钉状态图标（推送请求不在接收方发生）
+        addChat(fromNick, msgText, msg.t || Date.now(), false, null);
         notify(fromNick + " 来了新消息", msgText);
-      } else {
-        // 自己的消息也推钉钉，用 msg.id 做 tag 去重
-        dingIcon = null; // 自己的消息不显示钉钉图标
       }
-      // 所有消息都推钉钉（tag 去重）
-      pushDing("【悠悠聊天室】" + fromNick, "[" + room + "] " + fromNick + ":\n" + msgText, dingIcon, msg.id);
     } else if (msg.type === "image") {
       var isSelfImg = msg.id && lastSentId === msg.id;
       if (isSelfImg) lastSentId = null;
       var imgNick = msg.nick || "匿名";
       console.log("[onMessage] 收到图片:", imgNick, "isSelf:", isSelfImg);
-      var dingIcon;
       if (!isSelfImg) {
-        dingIcon = createDingIcon();
-        addImage(imgNick, msg.data || "", msg.t || Date.now(), false, dingIcon);
+        // 接收方消息不显示钉钉状态图标
+        addImage(imgNick, msg.data || "", msg.t || Date.now(), false, null);
         notify(imgNick + " 发来图片", "点击查看");
-      } else {
-        dingIcon = null;
       }
-      pushDing("【悠悠聊天室】" + imgNick, "[" + room + "] " + imgNick + " 发来图片（画板作品）", dingIcon, msg.id);
     }
   }
 
@@ -730,7 +721,11 @@
     lastSentId = id;
     var msg = { type: "chat", id: id, nick: nick, text: text, t: Date.now() };
     publish(msg);
-    addChat(nick, text, msg.t, true);
+    // 发送方自己负责推送钉钉：一条消息只有发送者这一台设备会触发 pushDing，
+    // 天然避免 N 个接收端并发导致的重复推送问题
+    var dingIcon = createDingIcon();
+    addChat(nick, text, msg.t, true, dingIcon);
+    pushDing("【悠悠聊天室】" + nick, "[" + room + "] " + nick + ":\n" + text, dingIcon, id);
     textEl.value = "";
     autoSize();
     closeEmoji();
@@ -1233,7 +1228,10 @@
     lastSentId = id;
     var msg = { type: "image", id: id, nick: nick, data: dataUrl, t: Date.now() };
     publish(msg);
-    addImage(nick, dataUrl, msg.t, true);
+    // 发送方自己负责推送钉钉
+    var dingIcon = createDingIcon();
+    addImage(nick, dataUrl, msg.t, true, dingIcon);
+    pushDing("【悠悠聊天室】" + nick, "[" + room + "] " + nick + " 发来图片（画板作品）", dingIcon, id);
     board.classList.remove("show");
     clearBoard();
     boardHistory.length = 0;
