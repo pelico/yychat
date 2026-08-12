@@ -1,26 +1,23 @@
 // Cloudflare Pages Function: 钉钉 webhook 代理（服务端全局去重）
-// 同部署的 Worker 实例共享内存，即使不同浏览器/设备都走这里，可全局去重
+// 用 Cache API 跨边缘实例共享去重状态；本实例内存做 L1 本地缓存
 
-// LRU 缓存：key = tag / value = expireAt
-const CACHE_MAX = 200;
-const CACHE_TTL = 3 * 60 * 1000; // 3 分钟
-let _cache = new Map();
+const CACHE_TTL = 3 * 60; // 3 分钟（Cache API 用秒）
+const L1_MAX = 200;
+let _l1 = new Map(); // L1 本地内存缓存：key -> expireAt(ms)
 
-function _hit(key) {
+function l1Hit(key) {
   const now = Date.now();
-  // 定期清理过期
-  if (_cache.size > CACHE_MAX) {
-    for (const [k, v] of _cache) {
-      if (v < now) _cache.delete(k);
-      if (_cache.size <= CACHE_MAX * 0.6) break;
+  if (_l1.size > L1_MAX) {
+    for (const [k, v] of _l1) {
+      if (v < now) _l1.delete(k);
+      if (_l1.size <= L1_MAX * 0.6) break;
     }
   }
-  if (_cache.has(key)) {
-    const expire = _cache.get(key);
-    if (expire >= now) return true;
-    _cache.delete(key);
+  if (_l1.has(key)) {
+    if (_l1.get(key) >= now) return true;
+    _l1.delete(key);
   }
-  _cache.set(key, now + CACHE_TTL);
+  _l1.set(key, now + CACHE_TTL * 1000);
   return false;
 }
 
@@ -30,33 +27,51 @@ export async function onRequestPost(context) {
     const request = context.request;
     const { title, content, tag } = await request.json();
     const text = content || "";
-
-    // 服务端去重：有 tag 就用 tag，没有就用内容 hash
     const dedupKey = tag || ("h" + hashStr(text));
-    if (_hit(dedupKey)) {
-      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true }), {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
+
+    // L1：本地内存（同实例内最快，1-2ms）
+    if (l1Hit(dedupKey)) {
+      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true, via: "l1" }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
 
+    // L2：Cache API（跨边缘实例共享，所有浏览器/设备都命中）
+    // 构造一个用于 cache 的虚拟 GET 请求（Cache API 只存 GET 响应）
+    const cacheKey = new Request("https://ding-dedup.local/" + encodeURIComponent(dedupKey), {
+      method: "GET",
+      headers: { "CF-Cache-Status": "yychat-dingtalk-dedup" }
+    });
+    const cache = caches.default;
+    let cachedResp = null;
+    try { cachedResp = await cache.match(cacheKey); } catch (e) {}
+    if (cachedResp) {
+      return new Response(JSON.stringify({ errcode: 0, errmsg: "ok", deduplicated: true, via: "l2" }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
+    }
+    // 写入 Cache API（存个空响应，通过 Cache-Control 设置 TTL）
+    try {
+      const cacheResp = new Response("1", {
+        headers: { "Cache-Control": `public, max-age=${CACHE_TTL}`, "Content-Type": "text/plain" }
+      });
+      context.waitUntil(cache.put(cacheKey, cacheResp));
+    } catch (e) {}
+
+    // 真正推钉钉
     const resp = await fetch(WEBHOOK, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ msgtype: "text", text: { title: title || "消息", content: text } })
     });
     const data = await resp.json();
-    // 失败时释放去重键
+    // 失败时清理 L1 和 L2 缓存，可重试
     if (data && data.errcode !== 0) {
-      _cache.delete(dedupKey);
+      _l1.delete(dedupKey);
+      try { context.waitUntil(cache.delete(cacheKey)); } catch (e) {}
     }
     return new Response(JSON.stringify(data), {
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      }
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
   } catch (e) {
     return new Response(JSON.stringify({ errcode: -1, errmsg: String(e) }), {
@@ -66,12 +81,11 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestGet(context) {
-  return new Response(JSON.stringify({ ok: true, msg: "dingtalk proxy ready", cache_size: _cache.size }), {
+  return new Response(JSON.stringify({ ok: true, msg: "dingtalk proxy ready", l1_size: _l1.size }), {
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
   });
 }
 
-// 简单字符串 hash（FNV-1a 32bit），无 tag 时兜底做内容去重
 function hashStr(s) {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
