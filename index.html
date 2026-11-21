@@ -1334,24 +1334,29 @@
 
   function drawTemplateToCanvas(svgStr) {
     try {
+      // 关键：data URI 里的 SVG 必须带 xmlns 和明确的 width/height，
+      // 否则浏览器加载后 img.width 为 0，drawImage 尺寸为 0，画面一片空白。
+      var fullSvg = svgStr.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" ');
       var img = new Image();
       img.onload = function () {
-        // 在 canvas 上当前图像之后，以低透明度画模板
+        var iw = img.naturalWidth || img.width || 200;
+        var ih = img.naturalHeight || img.height || 200;
+        if (!iw || !ih) { showBoardToast("模板图片无效"); return; }
         var tmpCanvas = document.createElement("canvas");
         tmpCanvas.width = boardCanvas.width; tmpCanvas.height = boardCanvas.height;
         var tmpCtx = tmpCanvas.getContext("2d");
         tmpCtx.fillStyle = getBackgroundFill();
         tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-        tmpCtx.globalAlpha = 0.25;
-        // 计算最大尺寸保持比例
-        var scale = Math.min(tmpCanvas.width / img.width, tmpCanvas.height / img.height) * 0.85;
-        var w = img.width * scale, h = img.height * scale;
+        tmpCtx.globalAlpha = 0.28;
+        var scale = Math.min(tmpCanvas.width / iw, tmpCanvas.height / ih) * 0.85;
+        var w = iw * scale, h = ih * scale;
         tmpCtx.drawImage(img, (tmpCanvas.width - w) / 2, (tmpCanvas.height - h) / 2, w, h);
         tmpCtx.globalAlpha = 1;
         bctx.drawImage(tmpCanvas, 0, 0);
       };
-      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
-    } catch (e) {}
+      img.onerror = function () { showBoardToast("模板加载失败"); };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(fullSvg);
+    } catch (e) { showBoardToast("模板出错"); }
   }
 
   function renderTemplateGrid() {
@@ -1561,6 +1566,7 @@
     }
     drawState.drawing = true;
     drawState.startX = p.x; drawState.startY = p.y;
+    drawState.lastStamp = null;
     smoothPoints = [p];
     if (drawState.tool === "line" || drawState.tool === "rect" || drawState.tool === "circle") {
       drawState.snapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
@@ -1597,9 +1603,13 @@
       return;
     }
 
-    // 彩虹笔：渐变 strokeStyle
+    // 彩虹笔：渐变 strokeStyle（颜色变化按时间节流，避免太快闪）
     if (drawState.tool === "rainbow") {
-      rainbowHue = (rainbowHue + 3) % 360;
+      var now = Date.now();
+      if (!drawState.lastHueT || now - drawState.lastHueT > 60) {
+        rainbowHue = (rainbowHue + 12) % 360;
+        drawState.lastHueT = now;
+      }
       var grad = bctx.createLinearGradient(drawState.startX, 0, p.x, 0);
       grad.addColorStop(0, "hsl(" + rainbowHue + ",90%,55%)");
       grad.addColorStop(1, "hsl(" + ((rainbowHue + 60) % 360) + ",90%,55%)");
@@ -1612,24 +1622,24 @@
       bctx.strokeStyle = drawState.color;
     }
 
-    // 星星/爱心：每 moveDraw 撒 emoji + 画线
+    // 星星/爱心：按移动距离节流，每次只撒 1 个，不画主路径线
     if (drawState.tool === "star" || drawState.tool === "heart") {
-      var emoji = drawState.tool === "star" ? "⭐" : "💗";
-      var sizeMap2 = { 4: 28, 8: 40, 14: 56 };
-      var fs = sizeMap2[drawState.size] || 36;
-      bctx.font = fs + "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
-      bctx.textAlign = "center"; bctx.textBaseline = "middle";
-      var scatter = 3; // 每帧撒 3 个
-      for (var i = 0; i < scatter; i++) {
-        var rx = p.x + (Math.random() - 0.5) * drawState.size * 4;
-        var ry = p.y + (Math.random() - 0.5) * drawState.size * 4;
-        bctx.globalCompositeOperation = "source-over"; // emoji 总是正画
-        bctx.fillText(emoji, rx, ry);
-        if (drawState.tool === "erase-true") bctx.globalCompositeOperation = "destination-out";
+      var lastStamp = drawState.lastStamp;
+      var stampGap = drawState.size * 2 + 14; // 移动够远才撒一颗
+      var moved = lastStamp ? Math.sqrt(Math.pow(p.x - lastStamp.x, 2) + Math.pow(p.y - lastStamp.y, 2)) : Infinity;
+      if (moved >= stampGap) {
+        drawState.lastStamp = p;
+        var emoji = drawState.tool === "star" ? "⭐" : "💗";
+        var sizeMap2 = { 4: 26, 8: 38, 14: 52 };
+        var fs = sizeMap2[drawState.size] || 34;
+        bctx.font = fs + "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+        bctx.textAlign = "center"; bctx.textBaseline = "middle";
+        var jx = (Math.random() - 0.5) * 10;
+        var jy = (Math.random() - 0.5) * 10;
+        bctx.globalCompositeOperation = "source-over";
+        bctx.fillText(emoji, p.x + jx, p.y + jy);
       }
-      // 同时画一条细细的主路径
-      bctx.lineWidth = Math.max(1, drawState.size / 3);
-      bctx.strokeStyle = drawState.color;
+      return; // 不画线，只留 emoji
     }
 
     // 平滑模式下收集点，用贝塞尔
