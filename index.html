@@ -241,6 +241,7 @@
   }
   .board-btn.send { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; }
   .board-btn.ghost { background: rgba(148,163,184,.15); color: var(--text); }
+  .board-btn.active { background: var(--accent); color: #fff; box-shadow: 0 0 0 2px rgba(99,102,241,.35); }
   #board-canvas {
     background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
     touch-action: none; max-width: 100%; max-height: 82vh; aspect-ratio: 3 / 2;
@@ -1573,6 +1574,9 @@
       drawState.rainbowBaseHue = rainbowHue;      // 起笔锁定起始色相
       rainbowHue = (rainbowHue + 47) % 360;       // 下一笔换个起始色
     }
+    // 平滑绘制用的上一个原始点 / 上一个中点
+    drawState.prevPoint = { x: p.x, y: p.y };
+    drawState.prevMid = null;
     smoothPoints = [p];
     if (drawState.tool === "line" || drawState.tool === "rect" || drawState.tool === "circle") {
       drawState.snapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
@@ -1647,19 +1651,17 @@
       return; // 不画线，只留 emoji
     }
 
-    // 平滑模式下收集点，用贝塞尔
-    if (smoothMode && ["pen","rainbow","star","heart","eraser","erase-true"].indexOf(drawState.tool) >= 0) {
-      smoothPoints.push(p);
-      if (smoothPoints.length >= 3) {
-        var s = smoothPoints;
-        // 三点平滑 curveTo
-        bctx.beginPath();
-        bctx.moveTo(s[s.length-3].x, s[s.length-3].y);
-        var cpx = (s[s.length-2].x + s[s.length-1].x) / 2;
-        var cpy = (s[s.length-2].y + s[s.length-1].y) / 2;
-        bctx.quadraticCurveTo(s[s.length-2].x, s[s.length-2].y, cpx, cpy);
-        bctx.stroke();
-      }
+    // 平滑模式：中点二次贝塞尔（上一段终点=上一个中点，控制点=上一个原始点）
+    if (smoothMode && ["pen","rainbow","eraser","erase-true"].indexOf(drawState.tool) >= 0) {
+      var prevPt = drawState.prevPoint;
+      var mid = { x: (prevPt.x + p.x) / 2, y: (prevPt.y + p.y) / 2 };
+      var from = drawState.prevMid || prevPt;
+      bctx.beginPath();
+      bctx.moveTo(from.x, from.y);
+      bctx.quadraticCurveTo(prevPt.x, prevPt.y, mid.x, mid.y);
+      bctx.stroke();
+      drawState.prevMid = mid;
+      drawState.prevPoint = p;
     } else {
       bctx.lineTo(p.x, p.y);
       bctx.stroke();
@@ -1676,8 +1678,11 @@
   // --- 自动平滑开关 ---
   $("board-smooth-btn").addEventListener("click", function () {
     smoothMode = !smoothMode;
-    $("board-smooth-btn").classList.toggle("active", smoothMode);
-    showBoardToast(smoothMode ? "平滑：开" : "平滑：关");
+    var sb = $("board-smooth-btn");
+    sb.classList.toggle("active", smoothMode);
+    sb.setAttribute("aria-pressed", smoothMode ? "true" : "false");
+    sb.title = smoothMode ? "平滑线条：已开启（点击关闭）" : "平滑线条：已关闭（点击开启）";
+    showBoardToast(smoothMode ? "平滑：开 〰" : "平滑：关 〰");
   });
 
   // --- 真擦除工具切换时提示 ---
