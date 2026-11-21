@@ -295,14 +295,22 @@
   }
   .board-popup-panel.show { display: flex; }
   .panel-title { font-size: 12px; color: var(--muted); margin-right: 4px; align-self: center; }
-  .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px,1fr)); gap: 8px; flex: 1; }
-  .template-item {
-    background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.25); border-radius: 10px;
-    padding: 6px; cursor: pointer; text-align: center; transition: transform .1s;
+  #board-template-panel { flex-direction: column; flex-wrap: nowrap; max-height: 46vh; overflow-y: auto; }
+  .sticker-head { display: flex; align-items: center; gap: 8px; width: 100%; flex-wrap: wrap; }
+  .sticker-hint { font-size: 11px; color: var(--muted); flex: 1; min-width: 160px; }
+  .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px,1fr)); gap: 6px; flex: 1; width: 100%; }
+  .sticker-cat {
+    grid-column: 1 / -1; font-size: 11px; color: var(--muted);
+    border-bottom: 1px dashed rgba(148,163,184,.25); padding: 2px 0 3px; margin-top: 2px;
   }
-  .template-item:hover { transform: scale(1.05); border-color: var(--accent); }
-  .template-item svg { width: 100%; height: 48px; display: block; }
-  .template-item .tpl-name { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .sticker-item {
+    background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.25); border-radius: 10px;
+    padding: 5px 3px 3px; cursor: pointer; text-align: center; transition: transform .1s, border-color .1s;
+  }
+  .sticker-item:hover { transform: scale(1.06); border-color: var(--accent); background: rgba(99,102,241,.14); }
+  .sticker-item:active { transform: scale(.94); }
+  .sticker-item svg { width: 100%; height: 44px; display: block; }
+  .sticker-item .st-name { font-size: 10px; color: var(--muted); margin-top: 1px; line-height: 1.2; }
   .theme-btn, .palette-set-btn {
     padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,.25);
     background: rgba(15,23,42,.5); color: var(--text); cursor: pointer; font-size: 12px;
@@ -439,6 +447,7 @@
     <div class="board-row">
       <div class="board-group" id="board-colors">
         <span class="board-label">颜色</span>
+        <span id="color-swatches" style="display:flex;gap:4px;flex-wrap:wrap">
         <span class="swatch active" data-color="#000000" style="background:#000"></span>
         <span class="swatch" data-color="#ef4444" style="background:#ef4444"></span>
         <span class="swatch" data-color="#f97316" style="background:#f97316"></span>
@@ -448,6 +457,7 @@
         <span class="swatch" data-color="#3b82f6" style="background:#3b82f6"></span>
         <span class="swatch" data-color="#a855f7" style="background:#a855f7"></span>
         <span class="swatch" data-color="#ec4899" style="background:#ec4899"></span>
+        </span>
         <input type="color" id="board-color-picker" style="display:none" />
         <button class="board-btn ghost" id="board-pick-color" title="自定义颜色">＋ 自定义</button>
       </div>
@@ -466,7 +476,7 @@
       <button class="board-btn ghost" id="board-clear" title="清空画布">🗑 清空</button>
       <button class="board-btn ghost active" id="board-smooth-btn" title="平滑线条：已开启（点击关闭）" aria-pressed="true">〰 平滑</button>
       <span class="row-divider"></span>
-      <button class="board-btn ghost" id="board-template-btn" title="涂色模板：选线稿描着画">📖 模板</button>
+      <button class="board-btn ghost" id="board-template-btn" title="素材库：选素材点到画布上，可重复放置">🧩 素材</button>
       <button class="board-btn ghost" id="board-theme-btn" title="背景主题：稿纸/格子/黑板">🎨 主题</button>
       <button class="board-btn ghost" id="board-palette-btn" title="预设配色方案">🎌 配色</button>
       <button class="board-btn ghost" id="board-save" title="保存为 PNG 图片">💾 保存</button>
@@ -479,9 +489,12 @@
   <div id="board-emoji-bar"></div>
   <!-- 模板面板 -->
   <div id="board-template-panel" class="board-popup-panel">
-    <span class="panel-title">涂色模板</span>
+    <div class="sticker-head">
+      <span class="panel-title">🧩 素材库</span>
+      <span class="sticker-hint">选一个素材 → 点画布放置，可以重复点很多个；大小跟随「粗细」</span>
+      <button class="board-btn ghost" id="template-hide" title="退出素材模式，回到画笔">✏️ 回到画笔</button>
+    </div>
     <div class="template-grid" id="template-grid"></div>
-    <button class="board-btn ghost" id="template-hide" style="align-self:center">隐藏模板</button>
   </div>
   <!-- 背景主题面板 -->
   <div id="board-theme-panel" class="board-popup-panel">
@@ -1352,24 +1365,64 @@
 
   // ======== 画板升级模块 ========
 
-  // --- 模板系统（12 个极简 SVG 线稿） ---
-  var BOARD_TEMPLATES = [
-    { name: "苹果", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M50 30 C40 20 20 25 25 55 C30 80 45 90 50 90 C55 90 70 80 75 55 C80 25 60 20 50 30Z"/><path d="M50 30 C52 15 60 10 68 15"/><path d="M55 20 L65 10"/></svg>' },
-    { name: "小鸡", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="45" cy="45" r="28"/><path d="M45 73 C40 85 35 90 30 90 L30 80"/><circle cx="38" cy="40" r="3"/><path d="M55 50 L70 48 L55 55Z"/><path d="M25 48 L15 45 L22 55"/></svg>' },
-    { name: "房子", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M20 55 L50 25 L80 55 L80 90 L20 90Z"/><path d="M42 90 L42 70 L58 70 L58 90"/><path d="M28 62 L38 62 L38 72 L28 72"/><path d="M62 62 L72 62 L72 72 L62 72"/></svg>' },
-    { name: "恐龙", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M15 70 C20 50 40 45 55 55 C70 65 80 50 85 45 C90 40 92 35 85 33 C80 32 78 36 80 40"/><circle cx="75" cy="40" r="2"/><path d="M15 70 L15 85 M30 75 L30 85 M45 72 L45 85 M60 70 L60 85"/></svg>' },
-    { name: "爱心", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M50 85 C20 65 10 45 20 30 C30 15 45 20 50 35 C55 20 70 15 80 30 C90 45 80 65 50 85Z"/></svg>' },
-    { name: "星星", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M50 10 L60 40 L92 40 L66 60 L76 90 L50 72 L24 90 L34 60 L8 40 L40 40Z"/></svg>' },
-    { name: "小猫", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="50" cy="55" r="35"/><path d="M22 30 L30 45 M22 30 L35 38"/><path d="M78 30 L70 45 M78 30 L65 38"/><circle cx="40" cy="52" r="3"/><circle cx="60" cy="52" r="3"/><path d="M50 60 L45 65 L55 65Z"/><path d="M45 68 L35 72 M55 68 L65 72"/></svg>' },
-    { name: "大象", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="55" cy="55" r="30"/><path d="M25 55 C15 55 10 70 15 80 C20 85 25 78 28 70"/><circle cx="48" cy="50" r="3"/><path d="M38 68 Q55 75 70 68" stroke-linecap="round"/><path d="M40 85 L40 95 M50 85 L50 95 M60 85 L60 95 M70 85 L70 95"/></svg>' },
-    { name: "公交车", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M15 20 L85 20 L85 75 L15 75Z"/><path d="M25 28 L40 28 L40 45 L25 45Z"/><path d="M48 28 L63 28 L63 45 L48 45Z"/><circle cx="28" cy="80" r="8"/><circle cx="72" cy="80" r="8"/><path d="M15 55 L35 55 M50 55 L70 55 M80 55 L85 55"/></svg>' },
-    { name: "花朵", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="50" cy="35" r="10"/><path d="M50 25 C40 10 20 20 30 35" transform="translate(0,0)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(72 50 35)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(144 50 35)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(216 50 35)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(288 50 35)"/><path d="M50 45 L50 95"/><path d="M50 70 L35 75 L40 85"/></svg>' },
-    { name: "小汽车", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M15 65 L25 45 L55 45 L75 45 L85 55 L85 65 Z"/><path d="M30 55 L45 55 L45 45"/><path d="M55 55 L70 55 L70 45"/><circle cx="28" cy="72" r="10"/><circle cx="72" cy="72" r="10"/></svg>' },
-    { name: "月亮", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M65 15 C35 15 20 40 30 65 C45 85 75 80 80 55 C55 55 55 20 65 15Z"/><circle cx="20" cy="20" r="2"/><circle cx="85" cy="80" r="2"/><circle cx="10" cy="85" r="1.5"/></svg>' },
+  // --- 素材贴纸库（可重复点击放置） ---
+  var STICKERS = [
+    // 天空
+    { cat: "天空", name: "太阳", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="22" fill="#fbbf24"/><g stroke="#f59e0b" stroke-width="5" stroke-linecap="round"><path d="M50 10v10M50 80v10M10 50h10M80 50h10M22 22l7 7M71 71l7 7M78 22l-7 7M29 71l-7 7"/></g></svg>' },
+    { cat: "天空", name: "月亮", svg: '<svg viewBox="0 0 100 100"><path d="M64 12a40 40 0 1 0 0 76 32 32 0 0 1 0-76z" fill="#fde68a" stroke="#f59e0b" stroke-width="3"/></svg>' },
+    { cat: "天空", name: "星星", svg: '<svg viewBox="0 0 100 100"><path d="M50 10l11 26 28 3-21 19 6 28-24-14-24 14 6-28-21-19 28-3z" fill="#fbbf24" stroke="#f59e0b" stroke-width="3" stroke-linejoin="round"/></svg>' },
+    { cat: "天空", name: "云朵", svg: '<svg viewBox="0 0 100 100"><path d="M26 70a16 16 0 0 1 2-32 20 20 0 0 1 38-6 15 15 0 0 1 4 38z" fill="#fff" stroke="#94a3b8" stroke-width="3"/></svg>' },
+    { cat: "天空", name: "彩虹", svg: '<svg viewBox="0 0 100 100"><g fill="none" stroke-width="8" stroke-linecap="round"><path d="M12 76a38 38 0 0 1 76 0" stroke="#ef4444"/><path d="M22 76a28 28 0 0 1 56 0" stroke="#f59e0b"/><path d="M32 76a18 18 0 0 1 36 0" stroke="#22c55e"/><path d="M42 76a8 8 0 0 1 16 0" stroke="#3b82f6"/></g></svg>' },
+    { cat: "天空", name: "雨滴", svg: '<svg viewBox="0 0 100 100"><path d="M50 12c10 16 20 26 20 38a20 20 0 0 1-40 0c0-12 10-22 20-38z" fill="#60a5fa" stroke="#3b82f6" stroke-width="3"/></svg>' },
+    { cat: "天空", name: "雪花", svg: '<svg viewBox="0 0 100 100"><g stroke="#38bdf8" stroke-width="4" stroke-linecap="round" fill="none"><path d="M50 12v76M17 31l66 38M83 31L17 69"/><path d="M50 22l-7-7M50 22l7-7M50 78l-7 7M50 78l7 7"/></g></svg>' },
+    { cat: "天空", name: "闪电", svg: '<svg viewBox="0 0 100 100"><path d="M56 8L26 56h20l-6 36 34-52H54z" fill="#facc15" stroke="#f59e0b" stroke-width="3" stroke-linejoin="round"/></svg>' },
+    // 植物
+    { cat: "植物", name: "大树", svg: '<svg viewBox="0 0 100 100"><rect x="44" y="60" width="12" height="32" rx="4" fill="#92400e"/><circle cx="50" cy="42" r="24" fill="#22c55e"/><circle cx="30" cy="54" r="16" fill="#16a34a"/><circle cx="70" cy="54" r="16" fill="#16a34a"/></svg>' },
+    { cat: "植物", name: "松树", svg: '<svg viewBox="0 0 100 100"><rect x="46" y="72" width="8" height="20" fill="#92400e"/><path d="M50 10l22 32H28z" fill="#15803d"/><path d="M50 34l26 34H24z" fill="#16a34a"/><path d="M50 56l30 26H20z" fill="#22c55e"/></svg>' },
+    { cat: "植物", name: "小花", svg: '<svg viewBox="0 0 100 100"><path d="M50 46v48" stroke="#16a34a" stroke-width="5"/><path d="M50 70c-10 0-16 6-16 12 8 0 16-4 16-12z" fill="#22c55e"/><g fill="#f472b6"><circle cx="50" cy="22" r="10"/><circle cx="68" cy="34" r="10"/><circle cx="62" cy="54" r="10"/><circle cx="38" cy="54" r="10"/><circle cx="32" cy="34" r="10"/></g><circle cx="50" cy="38" r="9" fill="#fbbf24"/></svg>' },
+    { cat: "植物", name: "向日葵", svg: '<svg viewBox="0 0 100 100"><path d="M50 58v38" stroke="#16a34a" stroke-width="6"/><path d="M50 76c-12 0-18 6-18 12 10 0 18-4 18-12z" fill="#22c55e"/><g fill="#facc15"><circle cx="50" cy="20" r="9"/><circle cx="68" cy="30" r="9"/><circle cx="72" cy="48" r="9"/><circle cx="60" cy="60" r="9"/><circle cx="40" cy="60" r="9"/><circle cx="28" cy="48" r="9"/><circle cx="32" cy="30" r="9"/></g><circle cx="50" cy="42" r="14" fill="#78350f"/></svg>' },
+    { cat: "植物", name: "蘑菇", svg: '<svg viewBox="0 0 100 100"><path d="M18 52a32 32 0 0 1 64 0z" fill="#ef4444"/><circle cx="36" cy="42" r="5" fill="#fff"/><circle cx="58" cy="36" r="6" fill="#fff"/><circle cx="70" cy="46" r="4" fill="#fff"/><path d="M40 52v24a10 10 0 0 0 20 0V52z" fill="#fef3c7" stroke="#d97706" stroke-width="3"/></svg>' },
+    { cat: "植物", name: "仙人掌", svg: '<svg viewBox="0 0 100 100"><rect x="43" y="26" width="16" height="56" rx="8" fill="#22c55e"/><path d="M30 44v10a8 8 0 0 0 8 8h5M70 36v16a8 8 0 0 1-8 8h-5" fill="none" stroke="#16a34a" stroke-width="8" stroke-linecap="round"/><rect x="30" y="78" width="42" height="14" rx="4" fill="#c2410c"/></svg>' },
+    { cat: "植物", name: "草丛", svg: '<svg viewBox="0 0 100 100"><g stroke="#16a34a" stroke-width="6" fill="none" stroke-linecap="round"><path d="M20 84c0-20 6-32 6-32s4 14 8 32"/><path d="M42 84c0-26 8-38 8-38s4 18 10 38"/><path d="M66 84c0-18 8-28 8-28s4 12 8 28"/></g></svg>' },
+    { cat: "植物", name: "树叶", svg: '<svg viewBox="0 0 100 100"><path d="M82 18C40 18 18 40 18 72c32 0 54-22 64-54z" fill="#22c55e"/><path d="M82 18L24 76" stroke="#15803d" stroke-width="3"/></svg>' },
+    // 动物
+    { cat: "动物", name: "小猫", svg: '<svg viewBox="0 0 100 100"><path d="M26 30l4 18" stroke="#f59e0b" stroke-width="10" stroke-linecap="round"/><path d="M74 30l-4 18" stroke="#f59e0b" stroke-width="10" stroke-linecap="round"/><circle cx="50" cy="52" r="26" fill="#fbbf24"/><circle cx="40" cy="48" r="4" fill="#1f2937"/><circle cx="60" cy="48" r="4" fill="#1f2937"/><path d="M50 56l-5 5h10z" fill="#f97316"/><path d="M32 58h10M58 58h10" stroke="#1f2937" stroke-width="2"/></svg>' },
+    { cat: "动物", name: "小狗", svg: '<svg viewBox="0 0 100 100"><ellipse cx="24" cy="42" rx="8" ry="14" fill="#b45309" transform="rotate(-20 24 42)"/><ellipse cx="76" cy="42" rx="8" ry="14" fill="#b45309" transform="rotate(20 76 42)"/><circle cx="50" cy="52" r="26" fill="#d97706"/><circle cx="40" cy="48" r="4" fill="#1f2937"/><circle cx="60" cy="48" r="4" fill="#1f2937"/><ellipse cx="50" cy="62" rx="7" ry="5" fill="#1f2937"/></svg>' },
+    { cat: "动物", name: "小牛", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="56" rx="27" ry="21" fill="#f8fafc" stroke="#94a3b8" stroke-width="3"/><path d="M30 40c-6-8-13-8-13-8s2 10 8 12M70 40c6-8 13-8 13-8s-2 10-8 12" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/><circle cx="40" cy="52" r="4" fill="#1f2937"/><circle cx="60" cy="52" r="4" fill="#1f2937"/><ellipse cx="50" cy="66" rx="12" ry="8" fill="#fda4af"/></svg>' },
+    { cat: "动物", name: "小羊", svg: '<svg viewBox="0 0 100 100"><g fill="#fff" stroke="#cbd5e1" stroke-width="3"><circle cx="38" cy="58" r="15"/><circle cx="56" cy="60" r="14"/><circle cx="48" cy="46" r="14"/></g><circle cx="70" cy="48" r="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="3"/><circle cx="66" cy="46" r="2.5" fill="#1f2937"/><circle cx="75" cy="46" r="2.5" fill="#1f2937"/></svg>' },
+    { cat: "动物", name: "小鸡", svg: '<svg viewBox="0 0 100 100"><circle cx="48" cy="52" r="24" fill="#fde047"/><path d="M48 28v-8" stroke="#f59e0b" stroke-width="4"/><circle cx="41" cy="46" r="3.5" fill="#1f2937"/><circle cx="57" cy="46" r="3.5" fill="#1f2937"/><path d="M48 54l10 4-10 4z" fill="#f97316"/><path d="M40 76l-5 10M56 76l5 10" stroke="#f97316" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小鸟", svg: '<svg viewBox="0 0 100 100"><path d="M28 52c-10-8-18-6-18-6s4 10 14 12z" fill="#0284c7"/><ellipse cx="48" cy="56" rx="26" ry="17" fill="#38bdf8"/><circle cx="70" cy="44" r="12" fill="#0ea5e9"/><circle cx="74" cy="42" r="3" fill="#1f2937"/><path d="M82 46l10 4-10 4z" fill="#f59e0b"/></svg>' },
+    { cat: "动物", name: "小鱼", svg: '<svg viewBox="0 0 100 100"><path d="M14 50c14-20 38-20 52 0-14 20-38 20-52 0z" fill="#fb923c"/><path d="M66 50l20-14v28z" fill="#f97316"/><circle cx="32" cy="45" r="3.5" fill="#1f2937"/></svg>' },
+    { cat: "动物", name: "蝴蝶", svg: '<svg viewBox="0 0 100 100"><ellipse cx="32" cy="38" rx="18" ry="15" fill="#f472b6"/><ellipse cx="68" cy="38" rx="18" ry="15" fill="#f472b6"/><ellipse cx="34" cy="66" rx="14" ry="12" fill="#c084fc"/><ellipse cx="66" cy="66" rx="14" ry="12" fill="#c084fc"/><rect x="47" y="26" width="6" height="52" rx="3" fill="#78350f"/><path d="M50 26l-9-12M50 26l9-12" stroke="#78350f" stroke-width="2.5"/></svg>' },
+    { cat: "动物", name: "蜜蜂", svg: '<svg viewBox="0 0 100 100"><ellipse cx="34" cy="34" rx="12" ry="8" fill="#bfdbfe" transform="rotate(-30 34 34)"/><ellipse cx="66" cy="34" rx="12" ry="8" fill="#bfdbfe" transform="rotate(30 66 34)"/><ellipse cx="50" cy="58" rx="20" ry="16" fill="#fbbf24"/><path d="M42 46v24M50 44v28M58 46v24" stroke="#1f2937" stroke-width="3.5"/></svg>' },
+    { cat: "动物", name: "兔子", svg: '<svg viewBox="0 0 100 100"><ellipse cx="40" cy="26" rx="7" ry="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/><ellipse cx="60" cy="26" rx="7" ry="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/><ellipse cx="50" cy="62" rx="24" ry="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/><circle cx="42" cy="58" r="3.5" fill="#1f2937"/><circle cx="58" cy="58" r="3.5" fill="#1f2937"/><path d="M50 66l-4 4h8z" fill="#f472b6"/></svg>' },
+    { cat: "动物", name: "青蛙", svg: '<svg viewBox="0 0 100 100"><circle cx="34" cy="32" r="12" fill="#4ade80"/><circle cx="66" cy="32" r="12" fill="#4ade80"/><circle cx="50" cy="58" r="26" fill="#4ade80"/><circle cx="34" cy="32" r="6" fill="#fff"/><circle cx="66" cy="32" r="6" fill="#fff"/><circle cx="34" cy="32" r="3" fill="#1f2937"/><circle cx="66" cy="32" r="3" fill="#1f2937"/><path d="M36 64q14 12 28 0" stroke="#15803d" stroke-width="3" fill="none"/></svg>' },
+    { cat: "动物", name: "大象", svg: '<svg viewBox="0 0 100 100"><circle cx="54" cy="52" r="27" fill="#94a3b8"/><path d="M30 58c-12 2-14 20-6 26 5 3 10-2 12-9" fill="#94a3b8"/><circle cx="76" cy="46" r="16" fill="#cbd5e1"/><circle cx="46" cy="46" r="4" fill="#1f2937"/></svg>' },
+    // 家园
+    { cat: "家园", name: "房子", svg: '<svg viewBox="0 0 100 100"><path d="M20 50L50 22l30 28v40H20z" fill="#fcd34d" stroke="#d97706" stroke-width="3"/><path d="M14 52L50 16l36 36" fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round"/><rect x="42" y="62" width="16" height="28" fill="#b45309"/><rect x="26" y="58" width="12" height="12" fill="#93c5fd" stroke="#3b82f6" stroke-width="2"/></svg>' },
+    { cat: "家园", name: "栅栏", svg: '<svg viewBox="0 0 100 100"><g stroke="#b45309" stroke-width="9" stroke-linecap="round"><path d="M14 40v52M40 40v52M66 40v52M90 40v52"/></g><g stroke="#d97706" stroke-width="7"><path d="M6 56h88M6 76h88"/></g></svg>' },
+    { cat: "家园", name: "小桥", svg: '<svg viewBox="0 0 100 100"><path d="M6 76h88" stroke="#92400e" stroke-width="6"/><path d="M12 76c12-28 64-28 76 0" fill="none" stroke="#b45309" stroke-width="9" stroke-linecap="round"/><path d="M26 62v14M50 56v20M74 62v14" stroke="#92400e" stroke-width="4"/></svg>' },
+    { cat: "家园", name: "帐篷", svg: '<svg viewBox="0 0 100 100"><path d="M50 16L12 84h76z" fill="#f87171" stroke="#dc2626" stroke-width="3"/><path d="M50 16v68M50 84L36 58l14-10 14 10z" fill="#fca5a5" stroke="#dc2626" stroke-width="2"/></svg>' },
+    { cat: "家园", name: "小山", svg: '<svg viewBox="0 0 100 100"><path d="M8 84L38 28l16 24 12-16 26 48z" fill="#94a3b8"/><path d="M38 28l10 16H28z" fill="#f1f5f9"/></svg>' },
+    { cat: "家园", name: "池塘", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="64" rx="38" ry="18" fill="#7dd3fc" stroke="#0ea5e9" stroke-width="3"/><path d="M24 60q8-6 16 0M58 60q8-6 16 0" stroke="#e0f2fe" stroke-width="3" fill="none"/></svg>' },
+    { cat: "家园", name: "雪人", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="68" r="20" fill="#fff" stroke="#cbd5e1" stroke-width="3"/><circle cx="50" cy="36" r="14" fill="#fff" stroke="#cbd5e1" stroke-width="3"/><circle cx="45" cy="34" r="2.5" fill="#1f2937"/><circle cx="55" cy="34" r="2.5" fill="#1f2937"/><path d="M50 40l8 3-8 3z" fill="#f97316"/><path d="M33 22h34L50 30z" fill="#ef4444"/></svg>' },
+    // 交通
+    { cat: "交通", name: "小汽车", svg: '<svg viewBox="0 0 100 100"><path d="M26 60l8-16h32l10 16z" fill="#fca5a5"/><path d="M12 60h76v14a6 6 0 0 1-6 6H18a6 6 0 0 1-6-6z" fill="#ef4444"/><circle cx="30" cy="80" r="8" fill="#1f2937"/><circle cx="70" cy="80" r="8" fill="#1f2937"/></svg>' },
+    { cat: "交通", name: "公交车", svg: '<svg viewBox="0 0 100 100"><rect x="12" y="22" width="76" height="50" rx="6" fill="#fbbf24" stroke="#f59e0b" stroke-width="3"/><rect x="20" y="30" width="20" height="16" fill="#93c5fd"/><rect x="46" y="30" width="20" height="16" fill="#93c5fd"/><rect x="72" y="30" width="10" height="16" fill="#93c5fd"/><circle cx="30" cy="78" r="8" fill="#1f2937"/><circle cx="70" cy="78" r="8" fill="#1f2937"/></svg>' },
+    { cat: "交通", name: "小船", svg: '<svg viewBox="0 0 100 100"><path d="M12 62h76l-12 20H24z" fill="#f97316"/><path d="M50 18l22 42H50z" fill="#fde047" stroke="#f59e0b" stroke-width="2"/><path d="M50 18v44" stroke="#92400e" stroke-width="3"/></svg>' },
+    { cat: "交通", name: "飞机", svg: '<svg viewBox="0 0 100 100"><path d="M50 10c6 0 8 10 8 18v12l30 16v10L58 60v12l12 8v6l-20-4-20 4v-6l12-8V60L12 66V56l30-16V28c0-8 2-18 8-18z" fill="#60a5fa" stroke="#3b82f6" stroke-width="2"/></svg>' },
+    { cat: "交通", name: "热气球", svg: '<svg viewBox="0 0 100 100"><path d="M50 12c18 0 30 14 30 30 0 14-10 22-18 28H38c-8-6-18-14-18-28 0-16 12-30 30-30z" fill="#f472b6"/><path d="M50 12v58" stroke="#db2777" stroke-width="2"/><path d="M38 70h24l-4 10H42z" fill="#a16207"/></svg>' },
+    // 小物件
+    { cat: "小物件", name: "苹果", svg: '<svg viewBox="0 0 100 100"><path d="M50 30c-16-12-34 0-32 22 2 22 18 34 32 34s30-12 32-34c2-22-16-34-32-22z" fill="#ef4444"/><path d="M50 30c0-10 6-16 14-18" stroke="#65a30d" stroke-width="4" fill="none"/></svg>' },
+    { cat: "小物件", name: "冰淇淋", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="34" r="20" fill="#f9a8d4"/><path d="M32 48h36L50 92z" fill="#fcd34d" stroke="#d97706" stroke-width="2"/></svg>' },
+    { cat: "小物件", name: "蛋糕", svg: '<svg viewBox="0 0 100 100"><rect x="18" y="48" width="64" height="36" rx="4" fill="#fbcfe8"/><path d="M18 56c10 8 22 8 32 0s22-8 32 0" fill="none" stroke="#f9a8d4" stroke-width="4"/><rect x="34" y="30" width="4" height="18" fill="#facc15"/><rect x="50" y="26" width="4" height="22" fill="#facc15"/><rect x="66" y="30" width="4" height="18" fill="#facc15"/><circle cx="36" cy="28" r="4" fill="#fb7185"/><circle cx="52" cy="24" r="4" fill="#fb7185"/><circle cx="68" cy="28" r="4" fill="#fb7185"/></svg>' },
+    { cat: "小物件", name: "气球", svg: '<svg viewBox="0 0 100 100"><path d="M50 72c6 10-6 12 0 22" stroke="#9ca3af" stroke-width="2" fill="none"/><ellipse cx="50" cy="38" rx="22" ry="26" fill="#ef4444"/><path d="M50 64l-6 8h12z" fill="#b91c1c"/></svg>' },
+    { cat: "小物件", name: "礼物", svg: '<svg viewBox="0 0 100 100"><rect x="20" y="44" width="60" height="42" rx="4" fill="#60a5fa"/><rect x="44" y="44" width="12" height="42" fill="#fbbf24"/><rect x="20" y="56" width="60" height="10" fill="#fbbf24"/><path d="M50 44c-14-8-24-4-24 0 8 4 16 4 24 0zM50 44c14-8 24-4 24 0-8 4-16 4-24 0z" fill="#f472b6"/></svg>' },
+    { cat: "小物件", name: "皇冠", svg: '<svg viewBox="0 0 100 100"><path d="M18 74h64l6-42-20 14-18-26-18 26-20-14z" fill="#fbbf24" stroke="#d97706" stroke-width="3" stroke-linejoin="round"/><circle cx="18" cy="30" r="4" fill="#f472b6"/><circle cx="82" cy="30" r="4" fill="#f472b6"/><circle cx="50" cy="18" r="4" fill="#f472b6"/></svg>' },
   ];
 
-  var templateMode = false;       // 当前是否有模板底图
-  var currentTemplateName = "";   // 当前模板名
+  var stickerCache = {};          // svg 字符串 → 已加载的 Image
+  var currentSticker = null;      // 当前选中的素材 { name, svg }
 
   // --- 油漆桶：扫描线洪水填充（封闭区域内快速上色） ---
   function hexToRgba(hex) {
@@ -1434,50 +1487,61 @@
     bctx.putImageData(img, 0, 0);
   }
 
-  function drawTemplateToCanvas(svgStr) {
-    try {
-      // 关键：data URI 里的 SVG 必须带 xmlns 和明确的 width/height，
-      // 否则浏览器加载后 img.width 为 0，drawImage 尺寸为 0，画面一片空白。
-      var fullSvg = svgStr.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" ');
-      var img = new Image();
-      img.onload = function () {
-        var iw = img.naturalWidth || img.width || 200;
-        var ih = img.naturalHeight || img.height || 200;
-        if (!iw || !ih) { showBoardToast("模板图片无效"); return; }
-        var tmpCanvas = document.createElement("canvas");
-        tmpCanvas.width = boardCanvas.width; tmpCanvas.height = boardCanvas.height;
-        var tmpCtx = tmpCanvas.getContext("2d");
-        tmpCtx.fillStyle = getBackgroundFill();
-        tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-        tmpCtx.globalAlpha = 0.28;
-        var scale = Math.min(tmpCanvas.width / iw, tmpCanvas.height / ih) * 0.85;
-        var w = iw * scale, h = ih * scale;
-        tmpCtx.drawImage(img, (tmpCanvas.width - w) / 2, (tmpCanvas.height - h) / 2, w, h);
-        tmpCtx.globalAlpha = 1;
-        bctx.drawImage(tmpCanvas, 0, 0);
-      };
-      img.onerror = function () { showBoardToast("模板加载失败"); };
-      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(fullSvg);
-    } catch (e) { showBoardToast("模板出错"); }
+  // --- 素材贴纸：加载 / 放置 / 面板 ---
+  function stickerImg(svg, cb) {
+    var cached = stickerCache[svg];
+    if (cached) {
+      if (cached.complete && (cached.naturalWidth || cached.width)) cb(cached);
+      else cached.addEventListener("load", function () { cb(cached); }, { once: true });
+      return;
+    }
+    var img = new Image();
+    // data URI 必须带 xmlns 和明确宽高，否则 img 尺寸为 0 画不出来
+    var full = svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" ');
+    img.onload = function () { stickerCache[svg] = img; cb(img); };
+    img.onerror = function () { showBoardToast("素材加载失败"); };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(full);
   }
 
-  function renderTemplateGrid() {
+  function stickerSize() {
+    return drawState.size === 14 ? 180 : (drawState.size === 8 ? 130 : 90);
+  }
+
+  function placeSticker(svg, x, y) {
+    stickerImg(svg, function (img) {
+      var s = stickerSize();
+      bctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+    });
+  }
+
+  function selectSticker(s) {
+    currentSticker = s;
+    drawState.tool = "sticker";
+    Array.prototype.forEach.call($("board-tools").querySelectorAll(".tool-btn"), function (x) { x.classList.remove("active"); });
+    boardEmojiBar.classList.remove("show");
+    boardCanvas.style.cursor = "copy";
+    $("board-template-panel").classList.remove("show");
+    showBoardToast("🧩 " + s.name + " · 点画布放置（可重复）");
+  }
+
+  function renderStickerGrid() {
     var grid = $("template-grid");
     grid.innerHTML = "";
-    BOARD_TEMPLATES.forEach(function (t) {
-      var div = document.createElement("div");
-      div.className = "template-item";
-      div.innerHTML = t.svg + '<div class="tpl-name">' + t.name + '</div>';
-      div.addEventListener("click", function () {
-        pushHistory();
-        applyBackground(getCurrentTheme());
-        templateMode = true;
-        currentTemplateName = t.name;
-        drawTemplateToCanvas(t.svg);
-        $("board-template-panel").classList.remove("show");
-        showBoardToast("选了：" + t.name + " ✏️");
-      });
-      grid.appendChild(div);
+    var lastCat = null;
+    STICKERS.forEach(function (s) {
+      if (s.cat !== lastCat) {
+        lastCat = s.cat;
+        var h = document.createElement("div");
+        h.className = "sticker-cat";
+        h.textContent = s.cat;
+        grid.appendChild(h);
+      }
+      var d = document.createElement("div");
+      d.className = "sticker-item";
+      d.title = s.name;
+      d.innerHTML = s.svg + '<div class="st-name">' + s.name + '</div>';
+      d.addEventListener("click", function () { selectSticker(s); });
+      grid.appendChild(d);
     });
   }
 
@@ -1485,14 +1549,13 @@
     $("board-template-panel").classList.toggle("show");
   });
   $("template-hide").addEventListener("click", function () {
-    if (templateMode) {
-      pushHistory();
-      applyBackground(getCurrentTheme());
-      templateMode = false;
-      currentTemplateName = "";
-      showBoardToast("模板已隐藏");
-    }
     $("board-template-panel").classList.remove("show");
+    currentSticker = null;
+    drawState.tool = "pen";
+    var penBtn = $("board-tools").querySelector('[data-tool="pen"]');
+    if (penBtn) penBtn.classList.add("active");
+    boardCanvas.style.cursor = "crosshair";
+    showBoardToast("已回到画笔 ✏️");
   });
 
   // --- 背景主题系统 ---
@@ -1543,14 +1606,6 @@
     pushHistory();
     currentTheme = theme;
     applyBackground(theme);
-    // 换背景后如果正在用模板，重新铺一层模板，避免模板被清掉
-    if (templateMode && currentTemplateName) {
-      var tpl = null;
-      for (var i = 0; i < BOARD_TEMPLATES.length; i++) {
-        if (BOARD_TEMPLATES[i].name === currentTemplateName) { tpl = BOARD_TEMPLATES[i]; break; }
-      }
-      if (tpl) drawTemplateToCanvas(tpl.svg);
-    }
     // 选了黑板自动切白色画笔
     if (theme === "blackboard" && drawState.color === "#000000") {
       setBoardColor("#ffffff");
@@ -1570,8 +1625,8 @@
 
   function rebuildColorSwatches(paletteName) {
     var colors = PALETTES[paletteName] || PALETTES.classic;
-    var container = $("board-colors");
-    container.innerHTML = '<span class="board-label">颜色</span>';
+    var container = $("color-swatches");
+    container.innerHTML = "";
     colors.forEach(function (c, i) {
       var s = document.createElement("span");
       s.className = "swatch" + (i === 0 ? " active" : "");
@@ -1664,6 +1719,13 @@
       bctx.textAlign = "center"; bctx.textBaseline = "middle";
       bctx.fillText(drawState.emojiChar || "😀", p.x, p.y);
       drawState.drawing = false;
+      return;
+    }
+    // 素材贴纸：点一下就放一个，可以连续点很多个
+    if (drawState.tool === "sticker") {
+      drawState.drawing = false;
+      if (currentSticker) placeSticker(currentSticker.svg, p.x, p.y);
+      else showBoardToast("先在 📖 素材里面选一个");
       return;
     }
     // 油漆桶：点一下就填满封闭区域，不需要拖动
@@ -1825,7 +1887,6 @@
   $("board-clear").addEventListener("click", function () {
     pushHistory();
     applyBackground(currentTheme);
-    templateMode = false;
     showBoardToast("画布已清空");
   });
 
@@ -1886,18 +1947,19 @@
   });
 
   // --- 初始化：模板渲染 + 预设配色重建 ---
-  renderTemplateGrid();
+  renderStickerGrid();
   rebuildColorSwatches("classic");
   applyBackground(currentTheme);
 
   // clearBoard 重写为使用当前主题背景（必须等 applyBackground 和 currentTheme 都定义好之后）
-  clearBoard = function () { applyBackground(currentTheme); templateMode = false; };
+  clearBoard = function () { applyBackground(currentTheme); };
 
   // 暴露给 console 调试（可选）
   window.__boardDebug = {
-    drawTemplate: function (name) {
-      var t = BOARD_TEMPLATES.find(function (x) { return x.name === name; });
-      if (t) { pushHistory(); applyBackground(currentTheme); drawTemplateToCanvas(t.svg); }
+    stickers: STICKERS,
+    select: function (name) {
+      var s = STICKERS.find(function (x) { return x.name === name; });
+      if (s) selectSticker(s);
     }
   };
 })();
