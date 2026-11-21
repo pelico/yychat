@@ -16,7 +16,6 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 .hole{position:relative;width:auto;box-sizing:border-box;height:auto;aspect-ratio:1;border-radius:50%;background:radial-gradient(ellipse at center,#2a1a0e 0%,#1a0e06 70%,#0d0704 100%);border:3px solid rgba(139,90,43,.4);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:border-color .15s,box-shadow .15s}
 .hole.cursor{border-color:#4ecca3;box-shadow:0 0 16px rgba(78,204,163,.4)}
 .mole{font-size:clamp(36px,10vw,64px);position:absolute;bottom:-100%;transition:bottom .2s ease-out;line-height:1}
-.hole.active .mole{bottom:10%}
 .hole.whacked .mole{bottom:10%}
 .hole.whacked::after{content:'💥';position:absolute;font-size:clamp(28px,7vw,48px);z-index:2;animation:popFade .4s ease forwards}
 .hole.miss::after{content:'❌';position:absolute;font-size:clamp(20px,5vw,36px);z-index:2;animation:popFade .3s ease forwards}
@@ -52,6 +51,26 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 .result-emoji{font-size:clamp(40px,8vw,64px);margin-bottom:8px}
 .countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(60px,15vw,120px);font-weight:bold;color:#4ecca3;z-index:20;text-shadow:0 0 30px rgba(78,204,163,.5);animation:countPop .8s ease forwards;pointer-events:none}
 @keyframes countPop{0%{opacity:0;transform:translate(-50%,-50%) scale(2)}30%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.8)}}
+
+/* 命中得分 popup：从洞里冒出来往上飘 */
+.score-pop{position:absolute;top:20%;left:50%;transform:translate(-50%,0);font-size:clamp(16px,4vw,28px);font-weight:bold;color:#ffd700;text-shadow:0 0 8px rgba(255,215,0,.6),0 1px 2px rgba(0,0,0,.6);z-index:3;pointer-events:none;animation:scoreFloat .8s ease-out forwards}
+@keyframes scoreFloat{0%{opacity:0;transform:translate(-50%,10px) scale(.6)}25%{opacity:1;transform:translate(-50%,-6px) scale(1.2)}100%{opacity:0;transform:translate(-50%,-40px) scale(1)}}
+
+/* 连击数闪光 */
+#comboDisplay.combo-flash{animation:comboFlash .5s ease}
+@keyframes comboFlash{0%{transform:scale(1);color:#4ecca3}40%{transform:scale(1.5);color:#ffd700;text-shadow:0 0 12px rgba(255,215,0,.7)}100%{transform:scale(1);color:#4ecca3}}
+
+/* 轻微震屏（命中时） */
+body.shake{animation:shake .18s ease}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,1px)}}
+
+/* 命中时锤子 emoji 的 pop */
+.hole.whacked .mole{animation:whackPop .28s ease forwards}
+@keyframes whackPop{0%{transform:scale(1) rotate(0)}40%{transform:scale(1.3) rotate(-10deg)}100%{transform:scale(.3) rotate(20deg);opacity:0}}
+
+/* 地鼠探头更有弹性 */
+.hole.active .mole{animation:molePop .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes molePop{0%{bottom:-100%}60%{bottom:18%}100%{bottom:10%}}
 </style>
 </head>
 <body>
@@ -282,11 +301,32 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
       // Hit!
       hole.el.classList.remove('active');
       hole.el.classList.add('whacked');
-      score += 10 + combo * 2;
+      var gained = 10 + combo * 2;
+      score += gained;
       combo++;
       if (combo > maxCombo) maxCombo = combo;
       scoreEl.textContent = score;
       comboEl.textContent = combo;
+
+      // —— 动效：分数 popup 从洞里冒出来 ——
+      var pop = document.createElement('div');
+      pop.className = 'score-pop';
+      pop.textContent = '+' + gained + (combo >= 3 ? ' 🔥' : '');
+      hole.el.appendChild(pop);
+      setTimeout(function(){ pop.remove(); }, 800);
+
+      // —— 动效：连击 ≥ 3 时 combo 数闪光 ——
+      if (combo >= 3) {
+        comboEl.classList.remove('combo-flash'); // 重置动画
+        void comboEl.offsetWidth;
+        comboEl.classList.add('combo-flash');
+      }
+
+      // —— 动效：命中时轻微震屏 ——
+      document.body.classList.remove('shake');
+      void document.body.offsetWidth;
+      document.body.classList.add('shake');
+
       hideMole(idx, true);
       setTimeout(function(){ hole.el.classList.remove('whacked'); }, 400);
     } else {

@@ -41,6 +41,18 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 .overlay .final{text-align:center;margin:10px 0}
 .overlay .final .score-big{font-size:clamp(40px,10vw,80px);color:#ffd700;font-weight:bold}
 .overlay .final .score-label{font-size:clamp(14px,2.5vw,20px);color:rgba(255,255,255,.7)}
+
+/* —— 动效：pad 亮起时脉冲 —— */
+.pad.on{animation:padPulse .3s ease}
+@keyframes padPulse{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+
+/* —— 动效：按错/游戏结束时震屏 —— */
+body.shake{animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}50%{transform:translate(4px,-2px)}75%{transform:translate(-2px,1px)}}
+
+/* —— 动效：胜利彩带 —— */
+.confetti{position:fixed;font-size:clamp(20px,4vw,32px);z-index:15;pointer-events:none;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{opacity:1;transform:translateY(-10vh) rotate(0)}100%{opacity:.8;transform:translateY(110vh) rotate(720deg)}}
 </style>
 </head>
 <body>
@@ -210,6 +222,30 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
     endRoundEl.textContent = round;
     endOverlay.classList.remove('hidden');
     setStatus('游戏结束');
+    // —— 结束时震屏 ——
+    document.body.classList.remove('shake');
+    void document.body.offsetWidth;
+    document.body.classList.add('shake');
+  }
+
+  // —— 完美过一轮撒彩带 ——
+  var CONFETTI_E = ['🎉','🎊','✨','⭐','💫','🌟','🎈','🏆','💖','🎯'];
+  function spawnConfetti(n) {
+    for (var i = 0; i < n; i++) {
+      (function(){
+        var delay = i * 50;
+        setTimeout(function() {
+          var el = document.createElement('div');
+          el.className = 'confetti';
+          el.textContent = CONFETTI_E[Math.floor(Math.random() * CONFETTI_E.length)];
+          el.style.left = Math.random() * 100 + 'vw';
+          el.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+          el.style.animationDelay = (Math.random() * 0.3) + 's';
+          document.body.appendChild(el);
+          setTimeout(function() { el.remove(); }, 3500);
+        }, delay);
+      })();
+    }
   }
 
   function handlePadClick(color) {
@@ -220,14 +256,18 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
       if (playerIdx >= sequence.length) {
         setStatus('<span class="turn">✅ 完美！</span> 准备下一轮...');
         inputLocked = true;
+        spawnConfetti(10); // —— 过一轮撒点彩带 ——
         setTimeout(nextRound, 700);
       } else {
         setStatus('<span class="turn">👆</span> 点出第 ' + (playerIdx + 1) + ' / ' + sequence.length + ' 个');
       }
     } else {
-      // 闪红光一下
+      // 闪红光一下 + 震屏
       var pad = boardEl.querySelector('.pad.' + color);
       if (pad) { pad.classList.add('on'); setTimeout(function() { pad.classList.remove('on'); }, 250); }
+      document.body.classList.remove('shake');
+      void document.body.offsetWidth;
+      document.body.classList.add('shake');
       gameOver();
     }
   }

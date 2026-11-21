@@ -48,6 +48,26 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 .overlay .final{text-align:center;margin:10px 0}
 .overlay .final .score-big{font-size:clamp(40px,10vw,80px);color:#ffd700;font-weight:bold}
 .overlay .final .score-label{font-size:clamp(14px,2.5vw,20px);color:rgba(255,255,255,.7)}
+
+/* —— 动效：揭开格子瞬间 pop —— */
+.cell.reveal-pop{animation:cellPop .22s ease}
+@keyframes cellPop{0%{transform:scale(.7);opacity:.4}100%{transform:scale(1);opacity:1}}
+
+/* —— 动效：踩雷时雷爆闪 —— */
+.cell.revealed.mine{animation:mineBoom .5s ease}
+@keyframes mineBoom{0%,100%{background:#e74c3c}25%{background:#fff}50%{background:#e74c3c}75%{background:#ff6b6b}}
+
+/* —— 动效：插旗 pop —— */
+.cell.flagged{animation:flagPop .25s ease}
+@keyframes flagPop{0%{transform:scale(0)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+
+/* —— 动效：踩雷震屏 —— */
+body.shake{animation:shake .35s ease}
+@keyframes shake{0%,100%{transform:translate(0,0)}15%{transform:translate(-6px,3px)}30%{transform:translate(6px,-3px)}45%{transform:translate(-4px,2px)}60%{transform:translate(4px,-2px)}75%{transform:translate(-2px,1px)}}
+
+/* —— 胜利 confetti —— */
+.confetti{position:fixed;font-size:clamp(18px,3.5vw,30px);z-index:15;pointer-events:none;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{opacity:1;transform:translateY(-10vh) rotate(0)}100%{opacity:.8;transform:translateY(110vh) rotate(720deg)}}
 </style>
 </head>
 <body>
@@ -195,7 +215,10 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
     revealed[r][c] = true;
     revealedCount++;
     if (board[r][c] === -1) {
-      // 踩雷
+      // 踩雷 —— 先震屏再结束
+      document.body.classList.remove('shake');
+      void document.body.offsetWidth;
+      document.body.classList.add('shake');
       gameOver(false);
       return;
     }
@@ -295,6 +318,7 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
         endTitle.textContent = '🎉 胜利！';
         endIcon.textContent = '🏆';
         endMsg.textContent = '用时 ' + timer + ' 秒';
+        spawnConfetti(20); // —— 胜利彩带 ——
       } else {
         endTitle.textContent = '💥 Game Over';
         endIcon.textContent = '💣';
@@ -302,6 +326,26 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
       }
       endOverlay.classList.remove('hidden');
     }, 350);
+  }
+
+  // —— 胜利彩带 ——
+  function spawnConfetti(n) {
+    var E = ['🎉','🎊','✨','⭐','💫','🌟','🎈','🍬','🏆','💖'];
+    for (var i = 0; i < n; i++) {
+      (function(){
+        var delay = i * 60;
+        setTimeout(function() {
+          var el = document.createElement('div');
+          el.className = 'confetti';
+          el.textContent = E[Math.floor(Math.random() * E.length)];
+          el.style.left = Math.random() * 100 + 'vw';
+          el.style.animationDuration = (1.8 + Math.random() * 1.8) + 's';
+          el.style.animationDelay = (Math.random() * 0.5) + 's';
+          document.body.appendChild(el);
+          setTimeout(function() { el.remove(); }, 4000);
+        }, delay);
+      })();
+    }
   }
 
   function cellFromPoint(e) {

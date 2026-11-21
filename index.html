@@ -217,7 +217,7 @@
   }
   #board.show { display: flex; }
   .board-bar {
-    width: 100%; max-width: 460px; background: var(--panel); border: 1px solid rgba(148,163,184,.2);
+    width: 100%; max-width: 900px; background: var(--panel); border: 1px solid rgba(148,163,184,.2);
     border-radius: 14px; padding: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   }
   .board-group { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
@@ -243,11 +243,11 @@
   .board-btn.ghost { background: rgba(148,163,184,.15); color: var(--text); }
   #board-canvas {
     background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
-    touch-action: none; max-width: 100%; max-height: 70vh;
+    touch-action: none; max-width: 100%; max-height: 82vh; aspect-ratio: 3 / 2;
   }
   /* 画板 emoji 选择条 */
   #board-emoji-bar {
-    display: none; width: 100%; max-width: 460px; max-height: 88px; overflow-x: auto; overflow-y: hidden;
+    display: none; width: 100%; max-width: 900px; max-height: 88px; overflow-x: auto; overflow-y: hidden;
     background: var(--panel); border: 1px solid rgba(148,163,184,.2); border-radius: 12px;
     padding: 6px 8px; margin-bottom: 10px; white-space: nowrap;
   }
@@ -378,7 +378,7 @@
     <button class="board-btn ghost" id="board-close">✕</button>
   </div>
   <div id="board-emoji-bar"></div>
-  <canvas id="board-canvas" width="400" height="400"></canvas>
+  <canvas id="board-canvas" width="900" height="600"></canvas>
 </div>
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
