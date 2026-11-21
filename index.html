@@ -1577,6 +1577,7 @@
     // 平滑绘制用的上一个原始点 / 上一个中点
     drawState.prevPoint = { x: p.x, y: p.y };
     drawState.prevMid = null;
+    drawState.lastPoint = { x: p.x, y: p.y };
     smoothPoints = [p];
     if (drawState.tool === "line" || drawState.tool === "rect" || drawState.tool === "circle") {
       drawState.snapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
@@ -1595,6 +1596,7 @@
     if (!drawState.drawing) return;
     e.preventDefault();
     var p = getPos(e);
+    var fromPt = drawState.lastPoint || { x: drawState.startX, y: drawState.startY };
     bctx.lineCap = "round"; bctx.lineJoin = "round";
     bctx.lineWidth = drawState.size;
 
@@ -1663,9 +1665,14 @@
       drawState.prevMid = mid;
       drawState.prevPoint = p;
     } else {
+      // 关键：每段只描自己这一段，否则 stroke() 会用当前颜色重描整条路径，
+      // 彩虹笔的起始色会被最新色覆盖（看起来颜色一直在变）。
+      bctx.beginPath();
+      bctx.moveTo(fromPt.x, fromPt.y);
       bctx.lineTo(p.x, p.y);
       bctx.stroke();
     }
+    drawState.lastPoint = p;
   };
 
   _endDrawImpl = function () {
