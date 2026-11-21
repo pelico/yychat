@@ -1712,6 +1712,8 @@
     e.preventDefault();
     var p = getPos(e);
     pushHistory();
+    // 记录创作行为，供鼓励系统打分
+    recordBoardAction(drawState.tool, drawState.color);
     // emoji 工具：点击即放置
     if (drawState.tool === "emoji") {
       var sizeMap = { 4: 44, 8: 72, 14: 104 };
@@ -1725,7 +1727,7 @@
     if (drawState.tool === "sticker") {
       drawState.drawing = false;
       if (currentSticker) placeSticker(currentSticker.svg, p.x, p.y);
-      else showBoardToast("先在 📖 素材里面选一个");
+      else showBoardToast("先在 🧩 素材里面选一个");
       return;
     }
     // 油漆桶：点一下就填满封闭区域，不需要拖动
@@ -1887,6 +1889,7 @@
   $("board-clear").addEventListener("click", function () {
     pushHistory();
     applyBackground(currentTheme);
+    resetBoardStats();
     showBoardToast("画布已清空");
   });
 
@@ -1926,24 +1929,118 @@
     }
   }
 
+  // --- 创作评分（纯本地启发式，分数不展示给孩子，只用来挑鼓励语） ---
+  var boardStats = { strokes: 0, stickers: 0, colors: {}, tools: {} };
+
+  function recordBoardAction(tool, color) {
+    boardStats.tools[tool] = true;
+    if (tool === "sticker") { boardStats.stickers++; return; }
+    if (["pen", "rainbow", "star", "heart", "line", "rect", "circle", "eraser", "erase-true", "fill"].indexOf(tool) >= 0) {
+      boardStats.strokes++;
+      if (color) boardStats.colors[color] = true;
+    }
+  }
+
+  function resetBoardStats() {
+    boardStats = { strokes: 0, stickers: 0, colors: {}, tools: {} };
+  }
+
+  // 采样画布：内容占比 + 九宫格覆盖数
+  function analyzeBoardPixels() {
+    var w = boardCanvas.width, h = boardCanvas.height, img, d;
+    try { img = bctx.getImageData(0, 0, w, h); d = img.data; } catch (e) { return { ratio: 0, cells: 0 }; }
+    var bgHex = (THEMES[currentTheme] || THEMES.white).fill;
+    var bg = hexToRgba(bgHex);
+    var stride = 3, total = 0, content = 0;
+    var cellTotal = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var cellInk = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var cw = w / 3, ch = h / 3;
+    for (var y = 0; y < h; y += stride) {
+      var cy = Math.min(2, Math.floor(y / ch));
+      for (var x = 0; x < w; x += stride) {
+        var i = (y * w + x) * 4;
+        var diff = Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
+        var cx = Math.min(2, Math.floor(x / cw));
+        var ci = cy * 3 + cx;
+        cellTotal[ci]++; total++;
+        if (diff > 45) { content++; cellInk[ci]++; }
+      }
+    }
+    var cells = 0;
+    for (var k = 0; k < 9; k++) {
+      if (cellTotal[k] && cellInk[k] / cellTotal[k] > 0.04) cells++;
+    }
+    return { ratio: total ? content / total : 0, cells: cells };
+  }
+
+  function scoreBoard() {
+    var px = analyzeBoardPixels();
+    var colorCount = Object.keys(boardStats.colors).length;
+    var toolCount = Object.keys(boardStats.tools).length;
+    var acts = boardStats.strokes + boardStats.stickers;
+
+    var s1 = Math.min(colorCount, 5) / 5 * 20;                       // 丰富度
+    var r = px.ratio;
+    var s2 = r <= 0 ? 0 : (r < 0.10 ? (r / 0.10) * 14                 // 完成度
+        : (r <= 0.55 ? 20 : Math.max(8, 20 - (r - 0.55) * 30)));
+    var s3 = Math.min(acts, 12) / 12 * 20;                           // 结构
+    var s4 = Math.min(toolCount, 5) / 5 * 20;                        // 变化
+    var s5 = px.cells / 9 * 20;                                      // 平衡
+
+    return {
+      total: Math.round(s1 + s2 + s3 + s4 + s5),
+      colorCount: colorCount, toolCount: toolCount, acts: acts,
+      ratio: r, cells: px.cells, stickers: boardStats.stickers
+    };
+  }
+
+  var PRAISE_LOW = [
+    "你一直在认真画呀，真专心！",
+    "每一笔都在变好，继续加油！",
+    "慢慢画，你的画会越来越棒！"
+  ];
+  var PRAISE_MID = [
+    "真棒！画面越来越丰富啦！",
+    "你的画里藏着好多小想法！",
+    "这个颜色配得真好看！"
+  ];
+  var PRAISE_HIGH = [
+    "哇！这幅画好完整，像一个小故事，可以讲给我听吗？",
+    "太厉害了！这是一幅完整的作品，我要给你鼓掌！",
+    "小艺术家出手啦！画面又满又漂亮！"
+  ];
+
+  function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function buildEncouragement() {
+    var sc = scoreBoard();
+    if (sc.acts === 0 && sc.ratio < 0.005) {
+      return { text: "画布还空着呢，先画点什么，我再来夸你～", score: sc };
+    }
+    if (sc.total >= 72) return { text: pickOne(PRAISE_HIGH), score: sc };
+    if (sc.total >= 45) {
+      var parts = [];
+      if (sc.colorCount >= 3) parts.push("用了 " + sc.colorCount + " 种颜色");
+      if (sc.acts >= 5) parts.push("画了 " + sc.acts + " 笔");
+      if (sc.stickers > 0) parts.push("放了 " + sc.stickers + " 个小素材");
+      if (parts.length) return { text: "真棒！你" + parts.join("、") + "，画面越来越丰富啦！", score: sc };
+      return { text: pickOne(PRAISE_MID), score: sc };
+    }
+    return { text: pickOne(PRAISE_LOW), score: sc };
+  }
+
   // --- Web Speech 朗读鼓励 ---
   $("board-speak").addEventListener("click", function () {
-    if (!("speechSynthesis" in window)) { showBoardToast("浏览器不支持语音"); return; }
-    var praises = [
-      "哇！画得真好看！",
-      "小朋友真棒！继续加油！",
-      "这幅画太有创意啦！",
-      "你真是个小艺术家！",
-      "颜色选得真漂亮！",
-      "我给你打一百分！"
-    ];
-    var text = praises[Math.floor(Math.random() * praises.length)];
+    var res = buildEncouragement();
+    var text = res.text;
+    showBoardToast("🔊 " + text);
+    if (res.score.total >= 72) spawnBoardConfetti(12);
+    if (!("speechSynthesis" in window)) return;
     var utter = new SpeechSynthesisUtterance(text);
     utter.lang = "zh-CN";
     utter.rate = 0.9;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
-    showBoardToast("🔊 " + text);
   });
 
   // --- 初始化：模板渲染 + 预设配色重建 ---
@@ -1952,7 +2049,7 @@
   applyBackground(currentTheme);
 
   // clearBoard 重写为使用当前主题背景（必须等 applyBackground 和 currentTheme 都定义好之后）
-  clearBoard = function () { applyBackground(currentTheme); };
+  clearBoard = function () { applyBackground(currentTheme); resetBoardStats(); };
 
   // 暴露给 console 调试（可选）
   window.__boardDebug = {
