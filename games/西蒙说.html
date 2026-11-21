@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🧠 西蒙说</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.info-bar{display:flex;gap:clamp(16px,4vw,32px);font-size:clamp(16px,3vw,24px);padding:8px 0;flex-shrink:0}
+.info-bar .val{color:#4ecca3;font-weight:bold}
+
+.board{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(10px,1.5vw,18px);width:min(86vw,420px);aspect-ratio:1}
+.pad{border:none;border-radius:clamp(14px,3vw,26px);cursor:pointer;transition:transform .08s,filter .12s;outline:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;aspect-ratio:1;font-size:clamp(60px,14vw,120px);display:flex;align-items:center;justify-content:center}
+.pad:active{transform:scale(.96)}
+.pad.green{background:#1e7a46}
+.pad.green.on{background:#4ecca3;box-shadow:0 0 clamp(16px,4vw,32px) #4ecca3,inset 0 0 clamp(12px,3vw,24px) rgba(255,255,255,.55)}
+.pad.red{background:#8e1f2b}
+.pad.red.on{background:#e74c3c;box-shadow:0 0 clamp(16px,4vw,32px) #e74c3c,inset 0 0 clamp(12px,3vw,24px) rgba(255,255,255,.55)}
+.pad.yellow{background:#a08a14}
+.pad.yellow.on{background:#f1c40f;box-shadow:0 0 clamp(16px,4vw,32px) #f1c40f,inset 0 0 clamp(12px,3vw,24px) rgba(255,255,255,.55)}
+.pad.blue{background:#15457a}
+.pad.blue.on{background:#3498db;box-shadow:0 0 clamp(16px,4vw,32px) #3498db,inset 0 0 clamp(12px,3vw,24px) rgba(255,255,255,.55)}
+.pad.disabled{cursor:not-allowed}
+
+.status{font-size:clamp(14px,2.5vw,18px);color:rgba(255,255,255,.7);margin:10px 0}
+.status .turn{color:#4ecca3;font-weight:bold}
+
+.overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.78);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:20px}
+.overlay.hidden{display:none}
+.overlay h1{font-size:clamp(26px,5vw,44px);margin-bottom:10px;text-shadow:0 0 20px rgba(78,204,163,.5)}
+.overlay p{font-size:clamp(14px,2.5vw,20px);color:rgba(255,255,255,.7);margin-bottom:6px;text-align:center}
+.diff-row{display:flex;gap:12px;margin:16px 0}
+.diff-btn{padding:clamp(8px,1.5vw,14px) clamp(16px,3vw,32px);border:2px solid #4ecca3;border-radius:12px;background:rgba(78,204,163,.1);color:#4ecca3;font-size:clamp(14px,2.5vw,20px);cursor:pointer;transition:all .2s}
+.diff-btn:hover,.diff-btn.active{background:#4ecca3;color:#1a1a2e;font-weight:bold}
+.overlay .hint{font-size:clamp(12px,2vw,16px);color:rgba(255,255,255,.5);margin-top:10px;text-align:center}
+.overlay .start-btn{margin-top:14px;padding:clamp(12px,2vw,18px) clamp(28px,5vw,48px);border:none;border-radius:14px;background:#4ecca3;color:#1a1a2e;font-size:clamp(16px,3vw,22px);font-weight:bold;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(78, 204, 163, 0.35)}
+.overlay .start-btn:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(78, 204, 163, 0.5)}
+.overlay .start-btn:active{transform:translateY(0)}
+
+.overlay .final{text-align:center;margin:10px 0}
+.overlay .final .score-big{font-size:clamp(40px,10vw,80px);color:#ffd700;font-weight:bold}
+.overlay .final .score-label{font-size:clamp(14px,2.5vw,20px);color:rgba(255,255,255,.7)}
+</style>
+</head>
+<body>
+
+<div class="info-bar">
+  <span>第 <span class="val" id="roundNum">0</span> 轮</span>
+  <span>最高 <span class="val" id="bestScore">0</span></span>
+</div>
+
+<div class="board" id="board">
+  <button class="pad green" data-color="green">1</button>
+  <button class="pad red" data-color="red">2</button>
+  <button class="pad yellow" data-color="yellow">3</button>
+  <button class="pad blue" data-color="blue">4</button>
+</div>
+
+<div class="status" id="statusText">按「开始游戏」进入第 1 轮</div>
+
+<!-- 开始菜单 -->
+<div class="overlay" id="overlay">
+  <h1>🧠 西蒙说</h1>
+  <p>记住电脑亮灯的顺序<br>依次点击相同的方块</p>
+  <div class="diff-row" id="diffRow">
+    <button class="diff-btn active" data-diff="easy">简单</button>
+    <button class="diff-btn" data-diff="normal">普通</button>
+    <button class="diff-btn" data-diff="hard">困难</button>
+  </div>
+  <div class="hint">简单 3 步起 · 普通 6 步起 · 困难 10 步起</div>
+  <div class="hint">按 回车 或点击 开始游戏</div>
+  <button class="start-btn" id="startBtn">开始游戏</button>
+</div>
+
+<!-- 结束 -->
+<div class="overlay hidden" id="endOverlay">
+  <h1>💥 Game Over</h1>
+  <div class="final">
+    <div class="score-label">闯过</div>
+    <div class="score-big" id="endRound">0</div>
+    <div class="score-label">轮</div>
+  </div>
+  <div class="hint">按 回车 或点击 再来一局</div>
+  <button class="start-btn" id="restartBtn">再来一局</button>
+</div>
+
+<script>
+(function() {
+  var boardEl = document.getElementById('board');
+  var pads = document.querySelectorAll('.pad');
+  var roundNumEl = document.getElementById('roundNum');
+  var bestScoreEl = document.getElementById('bestScore');
+  var statusText = document.getElementById('statusText');
+  var overlay = document.getElementById('overlay');
+  var endOverlay = document.getElementById('endOverlay');
+  var diffRow = document.getElementById('diffRow');
+  var diffBtns = diffRow.querySelectorAll('.diff-btn');
+  var startBtn = document.getElementById('startBtn');
+  var restartBtn = document.getElementById('restartBtn');
+  var endRoundEl = document.getElementById('endRound');
+
+  var COLORS = ['green', 'red', 'yellow', 'blue'];
+  var state = 'menu'; // menu / showing / playing / over
+  var difficulty = 'easy';
+  var sequence = [];
+  var playerIdx = 0;
+  var round = 0;
+  var showingTimer = null;
+  var inputLocked = false; // 播放过程中禁止点击
+
+  // 音频（可选，失败也 silently 忽略）
+  var audioCtx = null;
+  function beep(freq, dur) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      gain.gain.value = 0.15;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+      osc.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
+  }
+  var FREQ = { green: 440, red: 330, yellow: 262, blue: 523 };
+
+  // 难度参数
+  function diffParam(d) {
+    if (d === 'easy')   return { startLen: 3, showMs: 520, gapMs: 220 };
+    if (d === 'normal') return { startLen: 6, showMs: 420, gapMs: 180 };
+    return                { startLen: 10, showMs: 320, gapMs: 140 };
+  }
+
+  function getBest() {
+    return parseInt(localStorage.getItem('simon-best-' + difficulty) || '0', 10);
+  }
+  function saveBest(v) {
+    var key = 'simon-best-' + difficulty;
+    if (v > getBest()) localStorage.setItem(key, String(v));
+  }
+  function refreshBest() {
+    bestScoreEl.textContent = getBest();
+  }
+
+  function setStatus(s) { statusText.innerHTML = s; }
+  function updateRound() { roundNumEl.textContent = round; }
+
+  function flash(color, dur) {
+    var pad = boardEl.querySelector('.pad.' + color);
+    if (!pad) return Promise.resolve();
+    return new Promise(function(resolve) {
+      pad.classList.add('on');
+      beep(FREQ[color], dur / 1000);
+      setTimeout(function() {
+        pad.classList.remove('on');
+        setTimeout(resolve, 90); // 视觉留影
+      }, dur);
+    });
+  }
+
+  async function showSequence() {
+    inputLocked = true;
+    state = 'showing';
+    var cp = diffParam(difficulty);
+    setStatus('<span class="turn">👀 看仔细...</span>');
+    for (var i = 0; i < sequence.length; i++) {
+      await flash(sequence[i], cp.showMs);
+      await new Promise(function(r) { showingTimer = setTimeout(r, cp.gapMs); });
+    }
+    state = 'playing';
+    inputLocked = false;
+    playerIdx = 0;
+    setStatus('<span class="turn">👆 到你了！</span> 点出第 1 / ' + sequence.length + ' 个');
+  }
+
+  function nextRound() {
+    var color = COLORS[Math.floor(Math.random() * 4)];
+    sequence.push(color);
+    round++;
+    updateRound();
+    showSequence();
+  }
+
+  function startGame() {
+    var cp = diffParam(difficulty);
+    sequence = [];
+    round = 0;
+    roundNumEl.textContent = '0';
+    // 先加入 startLen 个
+    for (var i = 0; i < cp.startLen; i++) {
+      sequence.push(COLORS[Math.floor(Math.random() * 4)]);
+    }
+    round = cp.startLen; // 起始就是 startLen 轮
+    updateRound();
+    overlay.classList.add('hidden');
+    endOverlay.classList.add('hidden');
+    // 解锁 audio（必须由用户手势触发）
+    try { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); } catch(e) {}
+    showSequence();
+  }
+
+  function gameOver() {
+    state = 'over';
+    inputLocked = true;
+    saveBest(round);
+    refreshBest();
+    beep(180, 0.35);
+    endRoundEl.textContent = round;
+    endOverlay.classList.remove('hidden');
+    setStatus('游戏结束');
+  }
+
+  function handlePadClick(color) {
+    if (state !== 'playing' || inputLocked) return;
+    if (sequence[playerIdx] === color) {
+      flash(color, 180);
+      playerIdx++;
+      if (playerIdx >= sequence.length) {
+        setStatus('<span class="turn">✅ 完美！</span> 准备下一轮...');
+        inputLocked = true;
+        setTimeout(nextRound, 700);
+      } else {
+        setStatus('<span class="turn">👆</span> 点出第 ' + (playerIdx + 1) + ' / ' + sequence.length + ' 个');
+      }
+    } else {
+      // 闪红光一下
+      var pad = boardEl.querySelector('.pad.' + color);
+      if (pad) { pad.classList.add('on'); setTimeout(function() { pad.classList.remove('on'); }, 250); }
+      gameOver();
+    }
+  }
+
+  // ---- 事件 ----
+  pads.forEach(function(p) {
+    p.addEventListener('click', function() {
+      handlePadClick(p.dataset.color);
+    });
+  });
+
+  diffBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      diffBtns.forEach(function(b) { b.classList.toggle('active', b === btn); });
+      difficulty = btn.getAttribute('data-diff');
+      refreshBest();
+    });
+  });
+
+  // Keyboard: 1/2/3/4 或 R/G/Y/B 对应方块；回车开始
+  document.addEventListener('keydown', function(e) {
+    var k = e.key;
+    if (overlay.classList.contains('hidden') && endOverlay.classList.contains('hidden')) {
+      // 游戏中
+      if (state === 'playing') {
+        var map = { '1': 'green', '2': 'red', '3': 'yellow', '4': 'blue',
+                    'g':'green','G':'green','r':'red','R':'red',
+                    'y':'yellow','Y':'yellow','b':'blue','B':'blue' };
+        if (map[k]) { e.preventDefault(); handlePadClick(map[k]); return; }
+      }
+      if (k === 'Escape') { e.preventDefault(); gameOver(); }
+      return;
+    }
+    // 在 overlay 上
+    if (k === 'Enter' || k === ' ') {
+      e.preventDefault();
+      if (!endOverlay.classList.contains('hidden')) { endOverlay.classList.add('hidden'); startGame(); }
+      else { overlay.classList.add('hidden'); startGame(); }
+    } else if (!endOverlay.classList.contains('hidden')) {
+      if (k === 'ArrowLeft' || k === 'ArrowRight') {
+        e.preventDefault();
+        var idx = Array.from(diffBtns).findIndex(function(b) { return b.classList.contains('active'); });
+        idx += (k === 'ArrowRight' ? 1 : -1);
+        idx = Math.max(0, Math.min(diffBtns.length - 1, idx));
+        diffBtns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+        difficulty = diffBtns[idx].getAttribute('data-diff');
+        refreshBest();
+      }
+    }
+  });
+
+  startBtn.addEventListener('click', function() {
+    overlay.classList.add('hidden');
+    startGame();
+  });
+  restartBtn.addEventListener('click', function() {
+    endOverlay.classList.add('hidden');
+    startGame();
+  });
+  overlay.addEventListener('click', function(e) {
+    if (e.target.classList.contains('diff-btn')) return;
+    if (!overlay.classList.contains('hidden')) { overlay.classList.add('hidden'); startGame(); }
+  });
+  endOverlay.addEventListener('click', function(e) {
+    if (e.target.classList.contains('start-btn')) return;
+    if (!endOverlay.classList.contains('hidden')) { endOverlay.classList.add('hidden'); startGame(); }
+  });
+
+  // 初始化
+  refreshBest();
+  // 禁止按钮选择态颜色
+  pads.forEach(function(p) { p.style.userSelect = 'none'; });
+})();
+</script>
+</body>
+</html>
