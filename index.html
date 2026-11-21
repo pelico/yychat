@@ -213,38 +213,65 @@
   #board {
     display: none; position: fixed; inset: 0; z-index: 50;
     background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
-    align-items: center; justify-content: center; padding: 12px; flex-direction: column;
+    align-items: center; justify-content: safe center; padding: 12px; flex-direction: column;
+    overflow-y: auto;
   }
   #board.show { display: flex; }
   .board-bar {
     width: 100%; max-width: 900px; background: var(--panel); border: 1px solid rgba(148,163,184,.2);
-    border-radius: 14px; padding: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    border-radius: 16px; padding: 8px 10px; margin-bottom: 8px;
+    display: flex; flex-direction: column; gap: 8px;
   }
+  .board-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .board-group { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
-  .board-label { font-size: 11px; color: var(--muted); margin-right: 2px; }
+  .board-label { font-size: 11px; color: var(--muted); margin-right: 2px; white-space: nowrap; }
+  .row-divider { width: 1px; height: 20px; background: rgba(148,163,184,.25); margin: 0 2px; flex-shrink: 0; }
   .swatch {
     width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); cursor: pointer;
     transition: transform .1s; flex-shrink: 0;
   }
   .swatch:active { transform: scale(.85); }
   .swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
-  .size-btn, .tool-btn {
+  .size-btn {
     width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(148,163,184,.25);
     background: rgba(15,23,42,.5); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 14px; flex-shrink: 0;
+    font-size: 14px; flex-shrink: 0; transition: all .12s;
   }
-  .size-btn.active, .tool-btn.active { background: var(--accent); border-color: var(--accent); }
+  .size-btn:hover { border-color: var(--accent); }
+  .size-btn.active { background: var(--accent); border-color: var(--accent); }
   .size-btn .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: none; border: none; }
+  /* 工具按钮：图标 + 文字标签 */
+  .tool-btn {
+    min-width: 52px; padding: 5px 7px 4px; border-radius: 10px;
+    border: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.5); color: var(--text);
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    flex-shrink: 0; transition: all .12s;
+  }
+  .tool-btn:hover { border-color: var(--accent); background: rgba(99,102,241,.15); }
+  .tool-btn .ico { font-size: 17px; line-height: 1.1; }
+  .tool-btn .lbl { font-size: 10px; line-height: 1.1; color: var(--muted); }
+  .tool-btn.active { background: var(--accent); border-color: var(--accent); }
+  .tool-btn.active .lbl { color: #fff; }
   .board-spacer { flex: 1; }
   .board-btn {
-    padding: 8px 12px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; flex-shrink: 0;
+    padding: 7px 11px; border-radius: 10px; border: none; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; flex-shrink: 0; transition: all .12s;
   }
   .board-btn.send { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; }
   .board-btn.ghost { background: rgba(148,163,184,.15); color: var(--text); }
+  .board-btn.ghost:hover { background: rgba(148,163,184,.3); }
   .board-btn.active { background: var(--accent); color: #fff; box-shadow: 0 0 0 2px rgba(99,102,241,.35); }
   #board-canvas {
     background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
-    touch-action: none; max-width: 100%; max-height: 82vh; aspect-ratio: 3 / 2;
+    touch-action: none; max-width: 100%; max-height: 70vh; aspect-ratio: 3 / 2;
+  }
+  /* 窄屏适配 */
+  @media (max-width: 640px) {
+    .tool-btn { min-width: 46px; padding: 4px 5px 3px; }
+    .tool-btn .ico { font-size: 15px; }
+    .tool-btn .lbl { font-size: 9px; }
+    .board-btn { padding: 6px 8px; font-size: 11.5px; }
+    #board-canvas { max-height: 56vh; }
   }
   /* 画板 emoji 选择条 */
   #board-emoji-bar {
@@ -392,52 +419,62 @@
 <!-- 画板 -->
 <div id="board">
   <div class="board-bar">
-    <div class="board-group" id="board-colors">
-      <span class="board-label">颜色</span>
-      <span class="swatch active" data-color="#000000" style="background:#000"></span>
-      <span class="swatch" data-color="#ef4444" style="background:#ef4444"></span>
-      <span class="swatch" data-color="#f97316" style="background:#f97316"></span>
-      <span class="swatch" data-color="#eab308" style="background:#eab308"></span>
-      <span class="swatch" data-color="#22c55e" style="background:#22c55e"></span>
-      <span class="swatch" data-color="#06b6d4" style="background:#06b6d4"></span>
-      <span class="swatch" data-color="#3b82f6" style="background:#3b82f6"></span>
-      <span class="swatch" data-color="#a855f7" style="background:#a855f7"></span>
-      <span class="swatch" data-color="#ec4899" style="background:#ec4899"></span>
+    <!-- 第 1 行：绘图工具 -->
+    <div class="board-row">
+      <div class="board-group" id="board-tools">
+        <button class="tool-btn active" data-tool="pen" title="自由画"><span class="ico">✏️</span><span class="lbl">画笔</span></button>
+        <button class="tool-btn" data-tool="rainbow" title="彩虹渐变色描边"><span class="ico">🌈</span><span class="lbl">彩虹</span></button>
+        <button class="tool-btn" data-tool="star" title="边画边撒星星"><span class="ico">⭐</span><span class="lbl">星星</span></button>
+        <button class="tool-btn" data-tool="heart" title="边画边撒爱心"><span class="ico">💗</span><span class="lbl">爱心</span></button>
+        <button class="tool-btn" data-tool="line" title="画直线"><span class="ico">／</span><span class="lbl">直线</span></button>
+        <button class="tool-btn" data-tool="rect" title="画矩形"><span class="ico">▭</span><span class="lbl">矩形</span></button>
+        <button class="tool-btn" data-tool="circle" title="画圆形"><span class="ico">○</span><span class="lbl">圆形</span></button>
+        <button class="tool-btn" data-tool="fill" title="油漆桶：封闭区域快速填色"><span class="ico">🪣</span><span class="lbl">填充</span></button>
+        <button class="tool-btn" data-tool="eraser" title="橡皮：用白色覆盖"><span class="ico">🧽</span><span class="lbl">橡皮</span></button>
+        <button class="tool-btn" data-tool="erase-true" title="真擦除：抠成透明"><span class="ico">🩹</span><span class="lbl">抠除</span></button>
+        <button class="tool-btn" data-tool="emoji" title="点击画布放置表情"><span class="ico">😀</span><span class="lbl">表情</span></button>
+      </div>
     </div>
-    <div class="board-group" id="board-sizes">
-      <span class="board-label">粗细</span>
-      <button class="size-btn active" data-size="4" title="细"><span class="dot" style="width:6px;height:6px"></span></button>
-      <button class="size-btn" data-size="8" title="中"><span class="dot" style="width:10px;height:10px"></span></button>
-      <button class="size-btn" data-size="14" title="粗"><span class="dot" style="width:16px;height:16px"></span></button>
+    <!-- 第 2 行：颜色 + 粗细 -->
+    <div class="board-row">
+      <div class="board-group" id="board-colors">
+        <span class="board-label">颜色</span>
+        <span class="swatch active" data-color="#000000" style="background:#000"></span>
+        <span class="swatch" data-color="#ef4444" style="background:#ef4444"></span>
+        <span class="swatch" data-color="#f97316" style="background:#f97316"></span>
+        <span class="swatch" data-color="#eab308" style="background:#eab308"></span>
+        <span class="swatch" data-color="#22c55e" style="background:#22c55e"></span>
+        <span class="swatch" data-color="#06b6d4" style="background:#06b6d4"></span>
+        <span class="swatch" data-color="#3b82f6" style="background:#3b82f6"></span>
+        <span class="swatch" data-color="#a855f7" style="background:#a855f7"></span>
+        <span class="swatch" data-color="#ec4899" style="background:#ec4899"></span>
+        <input type="color" id="board-color-picker" style="display:none" />
+        <button class="board-btn ghost" id="board-pick-color" title="自定义颜色">＋ 自定义</button>
+      </div>
+      <span class="row-divider"></span>
+      <div class="board-group" id="board-sizes">
+        <span class="board-label">粗细</span>
+        <button class="size-btn active" data-size="4" title="细"><span class="dot" style="width:6px;height:6px"></span></button>
+        <button class="size-btn" data-size="8" title="中"><span class="dot" style="width:10px;height:10px"></span></button>
+        <button class="size-btn" data-size="14" title="粗"><span class="dot" style="width:16px;height:16px"></span></button>
+      </div>
     </div>
-    <div class="board-group" id="board-tools">
-      <span class="board-label">画笔</span>
-      <button class="tool-btn active" data-tool="pen" title="自由画">✏️</button>
-      <button class="tool-btn" data-tool="rainbow" title="彩虹笔">🌈</button>
-      <button class="tool-btn" data-tool="star" title="喷星星">⭐</button>
-      <button class="tool-btn" data-tool="heart" title="喷爱心">💗</button>
-      <button class="tool-btn" data-tool="line" title="直线">／</button>
-      <button class="tool-btn" data-tool="rect" title="矩形">▭</button>
-      <button class="tool-btn" data-tool="circle" title="圆形">○</button>
-      <button class="tool-btn" data-tool="fill" title="油漆桶：封闭区域填色">🪣</button>
-      <button class="tool-btn" data-tool="eraser" title="橡皮">🧽</button>
-      <button class="tool-btn" data-tool="erase-true" title="真擦除（透明）">🩹</button>
-      <button class="tool-btn" data-tool="emoji" title="放表情">😀</button>
+    <!-- 第 3 行：操作 -->
+    <div class="board-row">
+      <button class="board-btn ghost" id="board-undo" title="撤销上一步">↩ 撤销</button>
+      <button class="board-btn ghost" id="board-redo" title="重做">↪ 重做</button>
+      <button class="board-btn ghost" id="board-clear" title="清空画布">🗑 清空</button>
+      <button class="board-btn ghost active" id="board-smooth-btn" title="平滑线条：已开启（点击关闭）" aria-pressed="true">〰 平滑</button>
+      <span class="row-divider"></span>
+      <button class="board-btn ghost" id="board-template-btn" title="涂色模板：选线稿描着画">📖 模板</button>
+      <button class="board-btn ghost" id="board-theme-btn" title="背景主题：稿纸/格子/黑板">🎨 主题</button>
+      <button class="board-btn ghost" id="board-palette-btn" title="预设配色方案">🎌 配色</button>
+      <button class="board-btn ghost" id="board-save" title="保存为 PNG 图片">💾 保存</button>
+      <button class="board-btn ghost" id="board-speak" title="朗读一句鼓励">🔊 鼓励</button>
+      <div class="board-spacer"></div>
+      <button class="board-btn send" id="board-send">发送</button>
+      <button class="board-btn ghost" id="board-close" title="关闭画板">✕</button>
     </div>
-    <div class="board-spacer"></div>
-    <button class="board-btn ghost" id="board-template-btn" title="涂色模板">📖</button>
-    <button class="board-btn ghost" id="board-theme-btn" title="背景主题">🎨</button>
-    <button class="board-btn ghost" id="board-palette-btn" title="配色">🎌</button>
-    <button class="board-btn ghost" id="board-undo">↩</button>
-    <button class="board-btn ghost" id="board-redo">↪</button>
-    <button class="board-btn ghost" id="board-clear">清空</button>
-    <button class="board-btn ghost active" id="board-smooth-btn" title="平滑线条：已开启（点击关闭）" aria-pressed="true">〰</button>
-    <button class="board-btn ghost" id="board-speak" title="朗读">🔊</button>
-    <button class="board-btn ghost" id="board-save">💾</button>
-    <input type="color" id="board-color-picker" style="display:none" />
-    <button class="board-btn ghost" id="board-pick-color" title="自定义颜色">🎨</button>
-    <button class="board-btn send" id="board-send">发送</button>
-    <button class="board-btn ghost" id="board-close">✕</button>
   </div>
   <div id="board-emoji-bar"></div>
   <!-- 模板面板 -->
