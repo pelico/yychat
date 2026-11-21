@@ -112,6 +112,22 @@ body {
     color: rgba(255,255,255,0.5);
     margin-top: 16px;
 }
+.overlay .start-btn {
+    margin-top: 14px;
+    padding: clamp(12px, 2vw, 18px) clamp(28px, 5vw, 48px);
+    border: none;
+    border-radius: 14px;
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-size: clamp(16px, 3vw, 22px);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(78, 204, 163, 0.35);
+}
+.overlay .start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(78, 204, 163, 0.5); }
+.overlay .start-btn:active { transform: translateY(0); }
+
 
 .win-text {
     font-size: clamp(18px, 3.5vw, 30px);
@@ -201,7 +217,8 @@ body {
         <button class="diff-btn" data-diff="medium">普通</button>
         <button class="diff-btn" data-diff="hard">困难</button>
     </div>
-    <div class="hint">按 回车 开始</div>
+    <div class="hint">按 回车 或点击 开始游戏</div>
+    <button class="start-btn" id="startBtn">开始游戏</button>
 </div>
 
 <!-- 暂停 -->
@@ -641,7 +658,22 @@ body {
             draw();
         }
     });
-})();
+
+  document.querySelectorAll('.overlay').forEach(function(ov) {
+    ov.addEventListener('click', function(e) {
+      if (ov.classList.contains('hidden')) return;
+      var t = e.target;
+      if (t.classList && t.classList.contains('diff-btn')) {
+        var d = t.getAttribute('data-diff');
+        if (d) { difficulty = d; document.querySelectorAll('.diff-btn').forEach(function(b) { b.classList.toggle('active', b === t); }); }
+        return;
+      }
+      e.preventDefault();
+      if (!pauseOverlay.classList.contains('hidden')) togglePause();
+      else startGame();
+    });
+  });
+    })();
 </script>
 </body>
 </html>

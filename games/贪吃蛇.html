@@ -143,6 +143,22 @@ body {
     color: rgba(255,255,255,0.6);
     animation: pulse 2s ease-in-out infinite;
 }
+.overlay .start-btn {
+    margin-top: 14px;
+    padding: clamp(12px, 2vw, 18px) clamp(28px, 5vw, 48px);
+    border: none;
+    border-radius: 14px;
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-size: clamp(16px, 3vw, 22px);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(78, 204, 163, 0.35);
+}
+.overlay .start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(78, 204, 163, 0.5); }
+.overlay .start-btn:active { transform: translateY(0); }
+
 
 @keyframes pulse {
     0%, 100% { opacity: 0.6; }
@@ -502,7 +518,15 @@ body {
     // 初始绘制
     init();
     draw();
-})();
+
+    // Overlay click to start or restart
+    overlay.addEventListener('click', function(e) {
+        if (!overlay.classList.contains('hidden')) {
+            e.preventDefault();
+            startGame();
+        }
+    });
+    })();
 </script>
 </body>
 </html>

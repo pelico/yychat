@@ -35,6 +35,22 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 .diff-item{padding:10px 20px;border:2px solid rgba(255,255,255,.2);border-radius:10px;font-size:clamp(14px,2.5vw,20px);transition:all .2s}
 .diff-item.active{border-color:#4ecca3;background:rgba(78,204,163,.2);color:#4ecca3;font-weight:bold}
 .hint{font-size:clamp(13px,2vw,18px);color:rgba(255,255,255,.5);margin-top:12px}
+.overlay .start-btn {
+    margin-top: 14px;
+    padding: clamp(12px, 2vw, 18px) clamp(28px, 5vw, 48px);
+    border: none;
+    border-radius: 14px;
+    background: #4ecca3;
+    color: #1a1a2e;
+    font-size: clamp(16px, 3vw, 22px);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(78, 204, 163, 0.35);
+}
+.overlay .start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(78, 204, 163, 0.5); }
+.overlay .start-btn:active { transform: translateY(0); }
+
 .win-emoji{font-size:clamp(40px,8vw,64px);margin-bottom:8px}
 </style>
 </head>
@@ -66,7 +82,8 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
     <div class="diff-item active" data-diff="1">普通</div>
     <div class="diff-item" data-diff="2">困难</div>
   </div>
-  <p class="hint" id="olHint">← → 切换难度 · 回车 开始</p>
+  <p class="hint" id="olHint">← → 切换难度 · 回车 或点击 开始</p>
+  <button class="start-btn" id="startBtn">开始游戏</button>
 </div>
 
 <script>
@@ -257,7 +274,7 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
     cancelAnimationFrame(timerRAF);
     olTitle.textContent = '🧠 记忆翻牌';
     olSub.textContent = '选择难度，按回车开始';
-    olHint.textContent = '← → 切换难度 · 回车 开始';
+    olHint.textContent = '← → 切换难度 · 回车 或点击 开始';
     diffRow.style.display = 'flex';
     infoBar.style.visibility = 'hidden';
     updateDiffUI();
@@ -381,7 +398,21 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
   });
 
   showMenu();
-})();
+
+  overlay.addEventListener('click', function(e) {
+    if (state === 'menu') {
+      var target = e.target;
+      if (target.classList.contains('diff-item')) {
+        diffIdx = parseInt(target.getAttribute('data-diff'));
+        updateDiffUI();
+        return;
+      }
+      e.preventDefault(); startGame();
+    } else if (state === 'win') {
+      e.preventDefault(); startGame();
+    }
+  });
+    })();
 </script>
 </body>
 </html>
