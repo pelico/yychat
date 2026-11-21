@@ -265,6 +265,31 @@
     background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
     touch-action: none; max-width: 100%; max-height: 70vh; aspect-ratio: 3 / 2;
   }
+  /* 画布容器：素材待放置层的定位基准 */
+  #board-canvas-wrap { position: relative; display: inline-block; line-height: 0; font-size: 0; max-width: 100%; }
+  #board-pending-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+  .pending-sticker {
+    position: absolute; pointer-events: auto; cursor: move; touch-action: none;
+    border: 2px dashed var(--accent); border-radius: 10px;
+    background: rgba(99,102,241,.08); user-select: none;
+  }
+  .pending-sticker.dragging { cursor: grabbing; }
+  .pending-sticker img { width: 100%; height: 100%; display: block; pointer-events: none; }
+  .pending-resize {
+    position: absolute; right: -9px; bottom: -9px; width: 20px; height: 20px;
+    border-radius: 50%; background: var(--accent); border: 2px solid #fff;
+    cursor: nwse-resize; touch-action: none;
+  }
+  .pending-actions {
+    position: absolute; left: 50%; top: -36px; transform: translateX(-50%);
+    display: flex; gap: 6px; line-height: 1;
+  }
+  .pending-actions button {
+    width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff;
+    font-size: 15px; cursor: pointer; padding: 0; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+  }
+  #board-pending-ok { background: #22c55e; color: #fff; }
+  #board-pending-cancel { background: #ef4444; color: #fff; }
   /* 窄屏适配 */
   @media (max-width: 640px) {
     .tool-btn { min-width: 46px; padding: 4px 5px 3px; }
@@ -515,7 +540,10 @@
     <div style="flex:1"></div>
     <span id="palette-show-dots" class="palette-set"></span>
   </div>
-  <canvas id="board-canvas" width="900" height="600"></canvas>
+  <div id="board-canvas-wrap">
+    <canvas id="board-canvas" width="900" height="600"></canvas>
+    <div id="board-pending-layer"></div>
+  </div>
 </div>
 <div id="board-toast"></div>
 
@@ -1210,6 +1238,7 @@
   var board = $("board");
   var boardBtn = $("board-btn");
   var boardCanvas = $("board-canvas");
+  var pendingLayer = $("board-pending-layer");
   var bctx = boardCanvas.getContext("2d");
   var boardHistory = [];
 
@@ -1236,6 +1265,7 @@
       Array.prototype.forEach.call($("board-tools").querySelectorAll(".tool-btn"), function (x) { x.classList.remove("active"); });
       $("board-tools").querySelector('[data-tool="emoji"]').classList.add("active");
       drawState.tool = "emoji";
+      if (typeof commitPendingSticker === "function") commitPendingSticker();
       boardEmojiBar.classList.add("show");
     });
     boardEmojiBar.appendChild(btn);
@@ -1341,26 +1371,29 @@
 
   var _undoImpl = undoBoard; // 留着后面赋值替换
   $("board-undo").addEventListener("click", function(){ _undoImpl(); });
-  $("board-close").addEventListener("click", function () { board.classList.remove("show"); });
+  $("board-close").addEventListener("click", function () { commitPendingSticker(); board.classList.remove("show"); });
   boardBtn.addEventListener("click", function () { board.classList.add("show"); });
 
   $("board-send").addEventListener("click", function () {
     if (!connected) { addSys("未连接，无法发送"); return; }
-    var dataUrl = boardCanvas.toDataURL("image/jpeg", 0.7);
-    if (dataUrl.length > 120000) dataUrl = boardCanvas.toDataURL("image/jpeg", 0.45);
-    var id = Math.random().toString(36).slice(2, 10);
-    lastSentId = id;
-    var msg = { type: "image", id: id, nick: nick, data: dataUrl, t: Date.now() };
-    publish(msg);
-    var dingIcon = createDingIcon();
-    addImage(nick, dataUrl, msg.t, true, dingIcon);
-    pushDing("【悠悠聊天室】" + nick, "[" + room + "] " + nick + " 发来图片（画板作品）", dingIcon, id);
-    showBoardToast("🎉 发送啦！");
-    spawnBoardConfetti(15);
-    board.classList.remove("show");
-    clearBoard();
-    boardHistory.length = 0;
-    boardRedoHistory.length = 0;
+    // 先把手上的素材落定，再截图，否则会漏掉
+    commitPendingSticker(function () {
+      var dataUrl = boardCanvas.toDataURL("image/jpeg", 0.7);
+      if (dataUrl.length > 120000) dataUrl = boardCanvas.toDataURL("image/jpeg", 0.45);
+      var id = Math.random().toString(36).slice(2, 10);
+      lastSentId = id;
+      var msg = { type: "image", id: id, nick: nick, data: dataUrl, t: Date.now() };
+      publish(msg);
+      var dingIcon = createDingIcon();
+      addImage(nick, dataUrl, msg.t, true, dingIcon);
+      pushDing("【悠悠聊天室】" + nick, "[" + room + "] " + nick + " 发来图片（画板作品）", dingIcon, id);
+      showBoardToast("🎉 发送啦！");
+      spawnBoardConfetti(15);
+      board.classList.remove("show");
+      clearBoard();
+      boardHistory.length = 0;
+      boardRedoHistory.length = 0;
+    });
   });
 
   // ======== 画板升级模块 ========
@@ -1507,12 +1540,157 @@
     return drawState.size === 14 ? 180 : (drawState.size === 8 ? 130 : 90);
   }
 
-  function placeSticker(svg, x, y) {
+  function placeStickerAt(svg, x, y, size, done) {
     stickerImg(svg, function (img) {
-      var s = stickerSize();
-      bctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+      bctx.drawImage(img, x - size / 2, y - size / 2, size, size);
+      if (done) done();
     });
   }
+
+  // --- 待放置素材：可以先拖动位置、拉角缩放，再点 ✓ 落到画布 ---
+  var pendingEl = null;
+  var pendingState = null;   // { svg, name, x, y, size } x/y 为中心点，单位是 CSS 像素
+
+  function pendingScale() {
+    var w = pendingLayer.clientWidth || boardCanvas.clientWidth || 0;
+    return w ? boardCanvas.width / w : 1;
+  }
+
+  function layoutPending() {
+    if (!pendingEl || !pendingState) return;
+    var s = pendingState.size;
+    pendingEl.style.left = (pendingState.x - s / 2) + "px";
+    pendingEl.style.top = (pendingState.y - s / 2) + "px";
+    pendingEl.style.width = s + "px";
+    pendingEl.style.height = s + "px";
+  }
+
+  function clampPending() {
+    var st = pendingState, W = pendingLayer.clientWidth, H = pendingLayer.clientHeight;
+    var half = st.size / 2;
+    st.x = Math.max(half, Math.min(W - half, st.x));
+    st.y = Math.max(half, Math.min(H - half, st.y));
+  }
+
+  function ensurePendingEl() {
+    if (pendingEl) return pendingEl;
+    var el = document.createElement("div");
+    el.className = "pending-sticker";
+    el.innerHTML =
+      '<img alt="">' +
+      '<div class="pending-resize" title="拖动调整大小"></div>' +
+      '<div class="pending-actions">' +
+      '<button type="button" id="board-pending-ok" title="放到画布上">✓</button>' +
+      '<button type="button" id="board-pending-cancel" title="不要这个">✕</button>' +
+      "</div>";
+    pendingLayer.appendChild(el);
+    pendingEl = el;
+
+    el.querySelector("#board-pending-ok").addEventListener("click", function (e) {
+      e.stopPropagation();
+      commitPendingSticker();
+    });
+    el.querySelector("#board-pending-cancel").addEventListener("click", function (e) {
+      e.stopPropagation();
+      discardPendingSticker();
+      showBoardToast("取消放置");
+    });
+
+    // 拖动位置
+    el.addEventListener("pointerdown", function (e) {
+      if (e.target.closest(".pending-resize") || e.target.closest("button")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var sx = e.clientX, sy = e.clientY;
+      var ox = pendingState.x, oy = pendingState.y;
+      el.classList.add("dragging");
+      el.setPointerCapture(e.pointerId);
+      function onMove(ev) {
+        if (!pendingState) return;
+        pendingState.x = ox + (ev.clientX - sx);
+        pendingState.y = oy + (ev.clientY - sy);
+        clampPending();
+        layoutPending();
+      }
+      function onUp() {
+        el.classList.remove("dragging");
+        el.removeEventListener("pointermove", onMove);
+        el.removeEventListener("pointerup", onUp);
+        el.removeEventListener("pointercancel", onUp);
+      }
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
+    });
+
+    // 拉右下角缩放
+    var rz = el.querySelector(".pending-resize");
+    rz.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var sx = e.clientX, sy = e.clientY;
+      var os = pendingState.size;
+      var maxSize = Math.min(pendingLayer.clientWidth, pendingLayer.clientHeight) * 0.9;
+      rz.setPointerCapture(e.pointerId);
+      function onMove(ev) {
+        if (!pendingState) return;
+        var d = Math.max(ev.clientX - sx, ev.clientY - sy);
+        pendingState.size = Math.max(28, Math.min(maxSize, os + d));
+        clampPending();
+        layoutPending();
+      }
+      function onUp() {
+        rz.removeEventListener("pointermove", onMove);
+        rz.removeEventListener("pointerup", onUp);
+        rz.removeEventListener("pointercancel", onUp);
+      }
+      rz.addEventListener("pointermove", onMove);
+      rz.addEventListener("pointerup", onUp);
+      rz.addEventListener("pointercancel", onUp);
+    });
+
+    return el;
+  }
+
+  function showPendingSticker(s) {
+    if (!s) return;
+    commitPendingSticker();          // 先落定上一个
+    ensurePendingEl();
+    var W = pendingLayer.clientWidth, H = pendingLayer.clientHeight;
+    if (!W || !H) return;
+    var k = pendingScale();
+    pendingState = {
+      svg: s.svg, name: s.name,
+      x: W / 2, y: H / 2,
+      size: Math.min(stickerSize() * k, Math.min(W, H) * 0.8)
+    };
+    pendingEl.querySelector("img").src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+      s.svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" ')
+    );
+    pendingEl.style.display = "block";
+    clampPending();
+    layoutPending();
+    stickerImg(s.svg, function () {});   // 预热缓存，确认时能立刻画上
+  }
+
+  function commitPendingSticker(done) {
+    if (!pendingEl || !pendingState || pendingEl.style.display === "none") { if (done) done(); return; }
+    var k = pendingScale();
+    var st = pendingState;
+    pushHistory();
+    pendingState = null;
+    pendingEl.style.display = "none";
+    recordBoardAction("sticker", null);
+    placeStickerAt(st.svg, st.x * k, st.y * k, st.size * k, done);
+  }
+
+  function discardPendingSticker() {
+    pendingState = null;
+    if (pendingEl) pendingEl.style.display = "none";
+  }
+
+  // 窗口尺寸变了，待放置素材的像素坐标会失准，直接落定
+  window.addEventListener("resize", function () { commitPendingSticker(); });
 
   function selectSticker(s) {
     currentSticker = s;
@@ -1521,7 +1699,8 @@
     boardEmojiBar.classList.remove("show");
     boardCanvas.style.cursor = "copy";
     $("board-template-panel").classList.remove("show");
-    showBoardToast("🧩 " + s.name + " · 点画布放置（可重复）");
+    showPendingSticker(s);
+    showBoardToast("🧩 " + s.name + " · 拖动调整位置，拉右下角改大小");
   }
 
   function renderStickerGrid() {
@@ -1550,6 +1729,7 @@
   });
   $("template-hide").addEventListener("click", function () {
     $("board-template-panel").classList.remove("show");
+    commitPendingSticker();
     currentSticker = null;
     drawState.tool = "pen";
     var penBtn = $("board-tools").querySelector('[data-tool="pen"]');
@@ -1711,6 +1891,13 @@
   _startDrawImpl = function (e) {
     e.preventDefault();
     var p = getPos(e);
+    // 素材贴纸：画布上点一下 = 把当前待放置素材落定（不额外压历史栈）
+    if (drawState.tool === "sticker") {
+      drawState.drawing = false;
+      if (pendingState) commitPendingSticker();
+      else showBoardToast("点 🧩 素材 再选一个");
+      return;
+    }
     pushHistory();
     // 记录创作行为，供鼓励系统打分
     recordBoardAction(drawState.tool, drawState.color);
@@ -1723,13 +1910,7 @@
       drawState.drawing = false;
       return;
     }
-    // 素材贴纸：点一下就放一个，可以连续点很多个
-    if (drawState.tool === "sticker") {
-      drawState.drawing = false;
-      if (currentSticker) placeSticker(currentSticker.svg, p.x, p.y);
-      else showBoardToast("先在 🧩 素材里面选一个");
-      return;
-    }
+    // 素材贴纸：在画布上由 startDraw 处理落定，这里不再放置
     // 油漆桶：点一下就填满封闭区域，不需要拖动
     if (drawState.tool === "fill") {
       drawState.drawing = false;
@@ -1877,6 +2058,7 @@
     var b = e.target.closest(".tool-btn");
     if (!b) return;
     var tool = b.getAttribute("data-tool");
+    commitPendingSticker();          // 换工具时把手上的素材落定
     boardCanvas.style.cursor = tool === "fill" ? "cell" : "crosshair";
     if (tool === "erase-true") showBoardToast("真擦除：抠掉像素");
     else if (tool === "rainbow") showBoardToast("🌈 彩虹笔");
@@ -1895,14 +2077,16 @@
 
   // --- 保存 PNG ---
   $("board-save").addEventListener("click", function () {
-    try {
-      var dataUrl = boardCanvas.toDataURL("image/png");
-      var a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = "画一画-" + new Date().toLocaleDateString() + "-" + Math.floor(Math.random()*1000) + ".png";
-      a.click();
-      showBoardToast("💾 已下载");
-    } catch (err) { showBoardToast("保存失败"); }
+    commitPendingSticker(function () {
+      try {
+        var dataUrl = boardCanvas.toDataURL("image/png");
+        var a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = "画一画-" + new Date().toLocaleDateString() + "-" + Math.floor(Math.random()*1000) + ".png";
+        a.click();
+        showBoardToast("💾 已下载");
+      } catch (err) { showBoardToast("保存失败"); }
+    });
   });
 
   // --- Toast 函数 ---
