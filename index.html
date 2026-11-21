@@ -419,6 +419,7 @@
       <button class="tool-btn" data-tool="line" title="直线">／</button>
       <button class="tool-btn" data-tool="rect" title="矩形">▭</button>
       <button class="tool-btn" data-tool="circle" title="圆形">○</button>
+      <button class="tool-btn" data-tool="fill" title="油漆桶：封闭区域填色">🪣</button>
       <button class="tool-btn" data-tool="eraser" title="橡皮">🧽</button>
       <button class="tool-btn" data-tool="erase-true" title="真擦除（透明）">🩹</button>
       <button class="tool-btn" data-tool="emoji" title="放表情">😀</button>
@@ -1333,6 +1334,69 @@
   var templateMode = false;       // 当前是否有模板底图
   var currentTemplateName = "";   // 当前模板名
 
+  // --- 油漆桶：扫描线洪水填充（封闭区域内快速上色） ---
+  function hexToRgba(hex) {
+    var h = String(hex || "#000000").replace("#", "").trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (h.length !== 6) return [0, 0, 0, 255];
+    var r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return [0, 0, 0, 255];
+    return [r, g, b, 255];
+  }
+
+  function floodFill(sx, sy, hexColor) {
+    var w = boardCanvas.width, h = boardCanvas.height;
+    sx = Math.floor(sx); sy = Math.floor(sy);
+    if (sx < 0 || sy < 0 || sx >= w || sy >= h) return;
+    var img, d;
+    try { img = bctx.getImageData(0, 0, w, h); d = img.data; } catch (e) { return; }
+
+    var fill = hexToRgba(hexColor);
+    var ti = (sy * w + sx) * 4;
+    var tr = d[ti], tg = d[ti + 1], tb = d[ti + 2], ta = d[ti + 3];
+    // 点到的位置已经是目标色 → 不重复填充
+    if (Math.abs(tr - fill[0]) <= 4 && Math.abs(tg - fill[1]) <= 4 && Math.abs(tb - fill[2]) <= 4) return;
+
+    var tol = 40;               // 容差：吃掉抗锯齿边缘，但撞到深色线就停
+    var visited = new Uint8Array(w * h);
+    var stack = [[sx, sy]];
+
+    function match(i4) {
+      return Math.abs(d[i4] - tr) <= tol && Math.abs(d[i4 + 1] - tg) <= tol &&
+             Math.abs(d[i4 + 2] - tb) <= tol && Math.abs(d[i4 + 3] - ta) <= tol;
+    }
+    function scanRow(ny, x1, x2) {
+      var nrow = ny * w, inRun = false;
+      for (var xx = x1; xx <= x2; xx++) {
+        var ok = !visited[nrow + xx] && match((nrow + xx) * 4);
+        if (ok) { if (!inRun) { stack.push([xx, ny]); inRun = true; } }
+        else inRun = false;
+      }
+    }
+
+    while (stack.length) {
+      var pt = stack.pop(), x = pt[0], y = pt[1];
+      var row = y * w;
+      if (visited[row + x] || !match((row + x) * 4)) continue;
+
+      var x1 = x;
+      while (x1 >= 0 && !visited[row + x1] && match((row + x1) * 4)) x1--;
+      x1++;
+      var x2 = x;
+      while (x2 < w && !visited[row + x2] && match((row + x2) * 4)) x2++;
+      x2--;
+
+      for (var xx2 = x1; xx2 <= x2; xx2++) {
+        var i4 = (row + xx2) * 4;
+        d[i4] = fill[0]; d[i4 + 1] = fill[1]; d[i4 + 2] = fill[2]; d[i4 + 3] = 255;
+        visited[row + xx2] = 1;
+      }
+      if (y > 0) scanRow(y - 1, x1, x2);
+      if (y < h - 1) scanRow(y + 1, x1, x2);
+    }
+    bctx.putImageData(img, 0, 0);
+  }
+
   function drawTemplateToCanvas(svgStr) {
     try {
       // 关键：data URI 里的 SVG 必须带 xmlns 和明确的 width/height，
@@ -1565,6 +1629,12 @@
       drawState.drawing = false;
       return;
     }
+    // 油漆桶：点一下就填满封闭区域，不需要拖动
+    if (drawState.tool === "fill") {
+      drawState.drawing = false;
+      floodFill(p.x, p.y, drawState.color);
+      return;
+    }
     drawState.drawing = true;
     drawState.startX = p.x; drawState.startY = p.y;
     drawState.lastStamp = null;
@@ -1697,10 +1767,12 @@
     var b = e.target.closest(".tool-btn");
     if (!b) return;
     var tool = b.getAttribute("data-tool");
+    boardCanvas.style.cursor = tool === "fill" ? "cell" : "crosshair";
     if (tool === "erase-true") showBoardToast("真擦除：抠掉像素");
     else if (tool === "rainbow") showBoardToast("🌈 彩虹笔");
     else if (tool === "star") showBoardToast("⭐ 喷星星");
     else if (tool === "heart") showBoardToast("💗 喷爱心");
+    else if (tool === "fill") showBoardToast("🪣 油漆桶：点封闭区域填色");
   });
 
   // --- 清空按钮：用新 clearBoard ---
