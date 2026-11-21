@@ -259,6 +259,53 @@
   #board-emoji-bar .be-btn:hover { background: rgba(148,163,184,.2); }
   #board-emoji-bar .be-btn.active { background: var(--accent); }
 
+  /* 画板升级：模板/主题/配色面板 */
+  .board-popup-panel {
+    display: none; width: 100%; max-width: 900px;
+    background: var(--panel); border: 1px solid rgba(148,163,184,.2); border-radius: 12px;
+    padding: 10px; margin-bottom: 10px; gap: 10px; flex-wrap: wrap;
+  }
+  .board-popup-panel.show { display: flex; }
+  .panel-title { font-size: 12px; color: var(--muted); margin-right: 4px; align-self: center; }
+  .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px,1fr)); gap: 8px; flex: 1; }
+  .template-item {
+    background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.25); border-radius: 10px;
+    padding: 6px; cursor: pointer; text-align: center; transition: transform .1s;
+  }
+  .template-item:hover { transform: scale(1.05); border-color: var(--accent); }
+  .template-item svg { width: 100%; height: 48px; display: block; }
+  .template-item .tpl-name { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .theme-btn, .palette-set-btn {
+    padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,.25);
+    background: rgba(15,23,42,.5); color: var(--text); cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .theme-btn.active, .palette-set-btn.active { background: var(--accent); border-color: var(--accent); }
+  .palette-set { display: flex; gap: 3px; margin-top: 4px; }
+  .palette-dot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); cursor: pointer; }
+  #board-canvas.theme-blackboard { background: #1e293b; }
+  #board-canvas.theme-paper { background: #fef3c7; }
+  #board-canvas.theme-pink { background: #fce7f3; }
+  #board-canvas.theme-bluegrid { background: #ffffff; }
+
+  /* Toast */
+  #board-toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff;
+    padding: 10px 20px; border-radius: 24px; font-weight: 600; font-size: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.4); opacity: 0; transition: all .3s; pointer-events: none; z-index: 200;
+  }
+  #board-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 彩带 confetti */
+  .bd-confetti {
+    position: fixed; top: -20px; font-size: 22px; pointer-events: none; z-index: 150;
+    animation: bdFall 2s linear forwards;
+  }
+  @keyframes bdFall {
+    to { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+  }
+
   /* 滚动条 */
   #messages::-webkit-scrollbar, #emoji-panel::-webkit-scrollbar, #board-emoji-bar::-webkit-scrollbar { width: 6px; height: 6px; }
   #messages::-webkit-scrollbar-thumb, #emoji-panel::-webkit-scrollbar-thumb, #board-emoji-bar::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 3px; }
@@ -363,23 +410,62 @@
       <button class="size-btn" data-size="14" title="粗"><span class="dot" style="width:16px;height:16px"></span></button>
     </div>
     <div class="board-group" id="board-tools">
-      <span class="board-label">形状</span>
+      <span class="board-label">画笔</span>
       <button class="tool-btn active" data-tool="pen" title="自由画">✏️</button>
+      <button class="tool-btn" data-tool="rainbow" title="彩虹笔">🌈</button>
+      <button class="tool-btn" data-tool="star" title="喷星星">⭐</button>
+      <button class="tool-btn" data-tool="heart" title="喷爱心">💗</button>
       <button class="tool-btn" data-tool="line" title="直线">／</button>
       <button class="tool-btn" data-tool="rect" title="矩形">▭</button>
       <button class="tool-btn" data-tool="circle" title="圆形">○</button>
       <button class="tool-btn" data-tool="eraser" title="橡皮">🧽</button>
+      <button class="tool-btn" data-tool="erase-true" title="真擦除（透明）">🩹</button>
       <button class="tool-btn" data-tool="emoji" title="放表情">😀</button>
     </div>
     <div class="board-spacer"></div>
-    <button class="board-btn ghost" id="board-undo">撤销</button>
+    <button class="board-btn ghost" id="board-template-btn" title="涂色模板">📖</button>
+    <button class="board-btn ghost" id="board-theme-btn" title="背景主题">🎨</button>
+    <button class="board-btn ghost" id="board-palette-btn" title="配色">🎌</button>
+    <button class="board-btn ghost" id="board-undo">↩</button>
+    <button class="board-btn ghost" id="board-redo">↪</button>
     <button class="board-btn ghost" id="board-clear">清空</button>
+    <button class="board-btn ghost" id="board-smooth-btn" title="平滑线条">〰</button>
+    <button class="board-btn ghost" id="board-speak" title="朗读">🔊</button>
+    <button class="board-btn ghost" id="board-save">💾</button>
+    <input type="color" id="board-color-picker" style="display:none" />
+    <button class="board-btn ghost" id="board-pick-color" title="自定义颜色">🎨</button>
     <button class="board-btn send" id="board-send">发送</button>
     <button class="board-btn ghost" id="board-close">✕</button>
   </div>
   <div id="board-emoji-bar"></div>
+  <!-- 模板面板 -->
+  <div id="board-template-panel" class="board-popup-panel">
+    <span class="panel-title">涂色模板</span>
+    <div class="template-grid" id="template-grid"></div>
+    <button class="board-btn ghost" id="template-hide" style="align-self:center">隐藏模板</button>
+  </div>
+  <!-- 背景主题面板 -->
+  <div id="board-theme-panel" class="board-popup-panel">
+    <span class="panel-title">背景主题</span>
+    <button class="theme-btn active" data-theme="white">📄 白色稿纸</button>
+    <button class="theme-btn" data-theme="bluegrid">📐 蓝格练习纸</button>
+    <button class="theme-btn" data-theme="paper">📜 米黄彩纸</button>
+    <button class="theme-btn" data-theme="pink">🌸 粉色贺卡</button>
+    <button class="theme-btn" data-theme="blackboard">🌑 黑板画</button>
+  </div>
+  <!-- 预设配色面板 -->
+  <div id="board-palette-panel" class="board-popup-panel">
+    <span class="panel-title">预设配色</span>
+    <button class="palette-set-btn active" data-palette="classic">经典</button>
+    <button class="palette-set-btn" data-palette="candy">糖果</button>
+    <button class="palette-set-btn" data-palette="crayon">蜡笔</button>
+    <button class="palette-set-btn" data-palette="pastel">马卡龙</button>
+    <div style="flex:1"></div>
+    <span id="palette-show-dots" class="palette-set"></span>
+  </div>
   <canvas id="board-canvas" width="900" height="600"></canvas>
 </div>
+<div id="board-toast"></div>
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
@@ -1192,15 +1278,20 @@
   }
   function endDraw() { drawState.drawing = false; drawState.snapshot = null; }
 
-  boardCanvas.addEventListener("mousedown", startDraw);
-  boardCanvas.addEventListener("mousemove", moveDraw);
-  window.addEventListener("mouseup", endDraw);
-  boardCanvas.addEventListener("touchstart", startDraw, { passive: false });
-  boardCanvas.addEventListener("touchmove", moveDraw, { passive: false });
-  window.addEventListener("touchend", endDraw);
+  // wrapper 模式：后续可通过重写 _xxxImpl 来替换实现
+  var _startDrawImpl = startDraw, _moveDrawImpl = moveDraw, _endDrawImpl = endDraw;
+  boardCanvas.addEventListener("mousedown", function(e){ _startDrawImpl(e); });
+  boardCanvas.addEventListener("mousemove", function(e){ _moveDrawImpl(e); });
+  window.addEventListener("mouseup", function(e){ _endDrawImpl(e); });
+  boardCanvas.addEventListener("touchstart", function(e){ _startDrawImpl(e); }, { passive: false });
+  boardCanvas.addEventListener("touchmove", function(e){ _moveDrawImpl(e); }, { passive: false });
+  window.addEventListener("touchend", function(e){ _endDrawImpl(e); });
 
+  // clearBoard 重写为使用当前主题背景
+  function clearBoard() { applyBackground(currentTheme); templateMode = false; }
   $("board-clear").addEventListener("click", function () { pushHistory(); clearBoard(); });
-  $("board-undo").addEventListener("click", undoBoard);
+  var _undoImpl = undoBoard;
+  $("board-undo").addEventListener("click", function(){ _undoImpl(); });
   $("board-close").addEventListener("click", function () { board.classList.remove("show"); });
   boardBtn.addEventListener("click", function () { board.classList.add("show"); });
 
@@ -1212,16 +1303,452 @@
     lastSentId = id;
     var msg = { type: "image", id: id, nick: nick, data: dataUrl, t: Date.now() };
     publish(msg);
-    // 发送方自己负责推送钉钉
     var dingIcon = createDingIcon();
     addImage(nick, dataUrl, msg.t, true, dingIcon);
     pushDing("【悠悠聊天室】" + nick, "[" + room + "] " + nick + " 发来图片（画板作品）", dingIcon, id);
+    showBoardToast("🎉 发送啦！");
+    spawnBoardConfetti(15);
     board.classList.remove("show");
     clearBoard();
     boardHistory.length = 0;
+    boardRedoHistory.length = 0;
   });
 
-  nickInput.focus();
+  // ======== 画板升级模块 ========
+
+  // --- 模板系统（12 个极简 SVG 线稿） ---
+  var BOARD_TEMPLATES = [
+    { name: "苹果", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M50 30 C40 20 20 25 25 55 C30 80 45 90 50 90 C55 90 70 80 75 55 C80 25 60 20 50 30Z"/><path d="M50 30 C52 15 60 10 68 15"/><path d="M55 20 L65 10"/></svg>' },
+    { name: "小鸡", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="45" cy="45" r="28"/><path d="M45 73 C40 85 35 90 30 90 L30 80"/><circle cx="38" cy="40" r="3"/><path d="M55 50 L70 48 L55 55Z"/><path d="M25 48 L15 45 L22 55"/></svg>' },
+    { name: "房子", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M20 55 L50 25 L80 55 L80 90 L20 90Z"/><path d="M42 90 L42 70 L58 70 L58 90"/><path d="M28 62 L38 62 L38 72 L28 72"/><path d="M62 62 L72 62 L72 72 L62 72"/></svg>' },
+    { name: "恐龙", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M15 70 C20 50 40 45 55 55 C70 65 80 50 85 45 C90 40 92 35 85 33 C80 32 78 36 80 40"/><circle cx="75" cy="40" r="2"/><path d="M15 70 L15 85 M30 75 L30 85 M45 72 L45 85 M60 70 L60 85"/></svg>' },
+    { name: "爱心", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M50 85 C20 65 10 45 20 30 C30 15 45 20 50 35 C55 20 70 15 80 30 C90 45 80 65 50 85Z"/></svg>' },
+    { name: "星星", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M50 10 L60 40 L92 40 L66 60 L76 90 L50 72 L24 90 L34 60 L8 40 L40 40Z"/></svg>' },
+    { name: "小猫", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="50" cy="55" r="35"/><path d="M22 30 L30 45 M22 30 L35 38"/><path d="M78 30 L70 45 M78 30 L65 38"/><circle cx="40" cy="52" r="3"/><circle cx="60" cy="52" r="3"/><path d="M50 60 L45 65 L55 65Z"/><path d="M45 68 L35 72 M55 68 L65 72"/></svg>' },
+    { name: "大象", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="55" cy="55" r="30"/><path d="M25 55 C15 55 10 70 15 80 C20 85 25 78 28 70"/><circle cx="48" cy="50" r="3"/><path d="M38 68 Q55 75 70 68" stroke-linecap="round"/><path d="M40 85 L40 95 M50 85 L50 95 M60 85 L60 95 M70 85 L70 95"/></svg>' },
+    { name: "公交车", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M15 20 L85 20 L85 75 L15 75Z"/><path d="M25 28 L40 28 L40 45 L25 45Z"/><path d="M48 28 L63 28 L63 45 L48 45Z"/><circle cx="28" cy="80" r="8"/><circle cx="72" cy="80" r="8"/><path d="M15 55 L35 55 M50 55 L70 55 M80 55 L85 55"/></svg>' },
+    { name: "花朵", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><circle cx="50" cy="35" r="10"/><path d="M50 25 C40 10 20 20 30 35" transform="translate(0,0)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(72 50 35)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(144 50 35)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(216 50 35)"/><path d="M50 25 C40 10 20 20 30 35" transform="rotate(288 50 35)"/><path d="M50 45 L50 95"/><path d="M50 70 L35 75 L40 85"/></svg>' },
+    { name: "小汽车", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M15 65 L25 45 L55 45 L75 45 L85 55 L85 65 Z"/><path d="M30 55 L45 55 L45 45"/><path d="M55 55 L70 55 L70 45"/><circle cx="28" cy="72" r="10"/><circle cx="72" cy="72" r="10"/></svg>' },
+    { name: "月亮", svg: '<svg viewBox="0 0 100 100" fill="none" stroke="#000" stroke-width="2"><path d="M65 15 C35 15 20 40 30 65 C45 85 75 80 80 55 C55 55 55 20 65 15Z"/><circle cx="20" cy="20" r="2"/><circle cx="85" cy="80" r="2"/><circle cx="10" cy="85" r="1.5"/></svg>' },
+  ];
+
+  var templateMode = false;       // 当前是否有模板底图
+  var currentTemplateName = "";   // 当前模板名
+
+  function drawTemplateToCanvas(svgStr) {
+    try {
+      var img = new Image();
+      img.onload = function () {
+        // 在 canvas 上当前图像之后，以低透明度画模板
+        var tmpCanvas = document.createElement("canvas");
+        tmpCanvas.width = boardCanvas.width; tmpCanvas.height = boardCanvas.height;
+        var tmpCtx = tmpCanvas.getContext("2d");
+        tmpCtx.fillStyle = getBackgroundFill();
+        tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+        tmpCtx.globalAlpha = 0.25;
+        // 计算最大尺寸保持比例
+        var scale = Math.min(tmpCanvas.width / img.width, tmpCanvas.height / img.height) * 0.85;
+        var w = img.width * scale, h = img.height * scale;
+        tmpCtx.drawImage(img, (tmpCanvas.width - w) / 2, (tmpCanvas.height - h) / 2, w, h);
+        tmpCtx.globalAlpha = 1;
+        bctx.drawImage(tmpCanvas, 0, 0);
+      };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+    } catch (e) {}
+  }
+
+  function renderTemplateGrid() {
+    var grid = $("template-grid");
+    grid.innerHTML = "";
+    BOARD_TEMPLATES.forEach(function (t) {
+      var div = document.createElement("div");
+      div.className = "template-item";
+      div.innerHTML = t.svg + '<div class="tpl-name">' + t.name + '</div>';
+      div.addEventListener("click", function () {
+        pushHistory();
+        applyBackground(getCurrentTheme());
+        templateMode = true;
+        currentTemplateName = t.name;
+        drawTemplateToCanvas(t.svg);
+        $("board-template-panel").classList.remove("show");
+        showBoardToast("选了：" + t.name + " ✏️");
+      });
+      grid.appendChild(div);
+    });
+  }
+
+  $("board-template-btn").addEventListener("click", function () {
+    $("board-template-panel").classList.toggle("show");
+  });
+  $("template-hide").addEventListener("click", function () {
+    if (templateMode) {
+      pushHistory();
+      applyBackground(getCurrentTheme());
+      templateMode = false;
+      currentTemplateName = "";
+      showBoardToast("模板已隐藏");
+    }
+    $("board-template-panel").classList.remove("show");
+  });
+
+  // --- 背景主题系统 ---
+  var currentTheme = "white";
+  var THEMES = {
+    white:     { fill: "#ffffff", canvasClass: "",   grid: false },
+    bluegrid:  { fill: "#ffffff", canvasClass: "theme-bluegrid", grid: true, gridColor: "#cfe2ff", gridStep: 30 },
+    paper:     { fill: "#fef3c7", canvasClass: "theme-paper",    grid: false },
+    pink:      { fill: "#fce7f3", canvasClass: "theme-pink",     grid: false },
+    blackboard:{ fill: "#1e293b", canvasClass: "theme-blackboard", grid: false }
+  };
+
+  function getCurrentTheme() { return currentTheme; }
+  function getBackgroundFill() { return THEMES[currentTheme].fill; }
+
+  function applyBackground(theme) {
+    var t = THEMES[theme] || THEMES.white;
+    // 清掉所有主题 class
+    Object.keys(THEMES).forEach(function (k) { boardCanvas.classList.remove(THEMES[k].canvasClass); });
+    if (t.canvasClass) boardCanvas.classList.add(t.canvasClass);
+    // 填底色
+    bctx.fillStyle = t.fill;
+    bctx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
+    // 蓝格练习纸的横线
+    if (t.grid) {
+      bctx.strokeStyle = t.gridColor;
+      bctx.lineWidth = 1;
+      bctx.beginPath();
+      for (var y = 30; y < boardCanvas.height; y += t.gridStep) {
+        bctx.moveTo(0, y); bctx.lineTo(boardCanvas.width, y);
+      }
+      bctx.stroke();
+    }
+  }
+
+  // 重写 clearBoard 使用当前主题
+  function clearBoardV2() { applyBackground(currentTheme); templateMode = false; }
+  function reloadClear() { /* 占位，applyBackground 已做所有事 */ }
+
+  $("board-theme-btn").addEventListener("click", function () {
+    $("board-theme-panel").classList.toggle("show");
+  });
+  $("board-theme-panel").addEventListener("click", function (e) {
+    var btn = e.target.closest(".theme-btn");
+    if (!btn) return;
+    Array.prototype.forEach.call($("board-theme-panel").querySelectorAll(".theme-btn"), function (x) { x.classList.remove("active"); });
+    btn.classList.add("active");
+    var theme = btn.getAttribute("data-theme");
+    pushHistory();
+    currentTheme = theme;
+    applyBackground(theme);
+    // 选了黑板自动切白色画笔
+    if (theme === "blackboard" && drawState.color === "#000000") {
+      setBoardColor("#ffffff");
+    } else if (theme !== "blackboard" && drawState.color === "#ffffff") {
+      setBoardColor("#000000");
+    }
+    showBoardToast("背景已换");
+  });
+
+  // --- 预设配色系统 ---
+  var PALETTES = {
+    classic: ["#000000","#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#a855f7","#ec4899","#ffffff"],
+    candy:   ["#ff3b8b","#ff7ac6","#ffb5e8","#7efff5","#38e0ff","#ffe066","#ff9ecb","#b59bff","#5ed9ff","#ffffff"],
+    crayon:  ["#d32f2f","#f57c00","#fbc02d","#388e3c","#0288d1","#7b1fa2","#5d4037","#424242","#ff7043","#ffffff"],
+    pastel:  ["#a8dadc","#f4a261","#e76f51","#a29bfe","#fd79a8","#55efc4","#81ecec","#fab1a0","#ffeaa7","#ffffff"],
+  };
+
+  function rebuildColorSwatches(paletteName) {
+    var colors = PALETTES[paletteName] || PALETTES.classic;
+    var container = $("board-colors");
+    container.innerHTML = '<span class="board-label">颜色</span>';
+    colors.forEach(function (c, i) {
+      var s = document.createElement("span");
+      s.className = "swatch" + (i === 0 ? " active" : "");
+      s.setAttribute("data-color", c);
+      s.style.background = c;
+      container.appendChild(s);
+    });
+    drawState.color = colors[0];
+    // 重建 palette-show-dots
+    var showDots = $("palette-show-dots");
+    showDots.innerHTML = "";
+    colors.slice(0, 8).forEach(function (c) {
+      var d = document.createElement("span");
+      d.className = "palette-dot";
+      d.style.background = c;
+      showDots.appendChild(d);
+    });
+  }
+
+  function setBoardColor(hex) {
+    drawState.color = hex;
+    // 同步更新 swatch active 状态（如果这个颜色存在）
+    var swatches = $("board-colors").querySelectorAll(".swatch");
+    var found = false;
+    Array.prototype.forEach.call(swatches, function (s) {
+      if (s.getAttribute("data-color") === hex) { s.classList.add("active"); found = true; }
+      else s.classList.remove("active");
+    });
+  }
+
+  $("board-palette-btn").addEventListener("click", function () {
+    $("board-palette-panel").classList.toggle("show");
+  });
+  $("board-palette-panel").addEventListener("click", function (e) {
+    var btn = e.target.closest(".palette-set-btn");
+    if (!btn) return;
+    Array.prototype.forEach.call($("board-palette-panel").querySelectorAll(".palette-set-btn"), function (x) { x.classList.remove("active"); });
+    btn.classList.add("active");
+    rebuildColorSwatches(btn.getAttribute("data-palette"));
+  });
+  $("board-pick-color").addEventListener("click", function () {
+    $("board-color-picker").click();
+  });
+  $("board-color-picker").addEventListener("input", function () {
+    setBoardColor($("board-color-picker").value);
+  });
+
+  // --- 重做栈 ---
+  var boardRedoHistory = [];
+  var _origPushHistory = pushHistory;
+  pushHistory = function () {
+    try {
+      boardHistory.push(bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height));
+      if (boardHistory.length > 30) boardHistory.shift();
+      boardRedoHistory.length = 0; // 新操作清空 redo
+    } catch (e) {}
+  };
+  _undoImpl = function () {
+    if (boardHistory.length === 0) return;
+    try {
+      var cur = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
+      boardRedoHistory.push(cur);
+      bctx.putImageData(boardHistory.pop(), 0, 0);
+    } catch (e) {}
+  };
+  function redoBoard() {
+    if (boardRedoHistory.length === 0) return;
+    try {
+      var cur = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
+      boardHistory.push(cur);
+      bctx.putImageData(boardRedoHistory.pop(), 0, 0);
+    } catch (e) {}
+  }
+  $("board-undo").addEventListener("click", undoBoard);
+  $("board-redo").addEventListener("click", redoBoard);
+
+  // --- 魔法笔刷 / 透明橡皮 ---
+  var rainbowHue = 0;
+  var smoothMode = false;
+  var smoothPoints = [];
+
+  // 重写 startDraw 支持新工具（赋值给 wrapper 变量）
+  _startDrawImpl = function (e) {
+    e.preventDefault();
+    var p = getPos(e);
+    pushHistory();
+    // emoji 工具：点击即放置
+    if (drawState.tool === "emoji") {
+      var sizeMap = { 4: 44, 8: 72, 14: 104 };
+      bctx.font = (sizeMap[drawState.size] || 48) + "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+      bctx.textAlign = "center"; bctx.textBaseline = "middle";
+      bctx.fillText(drawState.emojiChar || "😀", p.x, p.y);
+      drawState.drawing = false;
+      return;
+    }
+    drawState.drawing = true;
+    drawState.startX = p.x; drawState.startY = p.y;
+    smoothPoints = [p];
+    if (drawState.tool === "line" || drawState.tool === "rect" || drawState.tool === "circle") {
+      drawState.snapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
+    }
+    if (["pen","rainbow","star","heart","eraser","erase-true"].indexOf(drawState.tool) >= 0) {
+      bctx.beginPath();
+      bctx.moveTo(p.x, p.y);
+    }
+    // 真擦除设置 composite
+    if (drawState.tool === "erase-true") bctx.globalCompositeOperation = "destination-out";
+    else bctx.globalCompositeOperation = "source-over";
+  };
+
+  // 重写 moveDraw 支持魔法笔刷
+  _moveDrawImpl = function (e) {
+    if (!drawState.drawing) return;
+    e.preventDefault();
+    var p = getPos(e);
+    bctx.lineCap = "round"; bctx.lineJoin = "round";
+    bctx.lineWidth = drawState.size;
+
+    // 线/矩形/圆形：老逻辑不变
+    if (drawState.snapshot && ["line","rect","circle"].indexOf(drawState.tool) >= 0) {
+      bctx.putImageData(drawState.snapshot, 0, 0);
+      bctx.beginPath();
+      bctx.strokeStyle = drawState.color;
+      if (drawState.tool === "line") { bctx.moveTo(drawState.startX, drawState.startY); bctx.lineTo(p.x, p.y); bctx.stroke(); }
+      else if (drawState.tool === "rect") { bctx.strokeRect(drawState.startX, drawState.startY, p.x - drawState.startX, p.y - drawState.startY); }
+      else if (drawState.tool === "circle") {
+        var dx = p.x - drawState.startX, dy = p.y - drawState.startY;
+        bctx.arc(drawState.startX, drawState.startY, Math.sqrt(dx * dx + dy * dy), 0, Math.PI * 2);
+        bctx.stroke();
+      }
+      return;
+    }
+
+    // 彩虹笔：渐变 strokeStyle
+    if (drawState.tool === "rainbow") {
+      rainbowHue = (rainbowHue + 3) % 360;
+      var grad = bctx.createLinearGradient(drawState.startX, 0, p.x, 0);
+      grad.addColorStop(0, "hsl(" + rainbowHue + ",90%,55%)");
+      grad.addColorStop(1, "hsl(" + ((rainbowHue + 60) % 360) + ",90%,55%)");
+      bctx.strokeStyle = grad;
+    } else if (drawState.tool === "eraser") {
+      bctx.strokeStyle = "#ffffff";
+    } else if (drawState.tool === "erase-true") {
+      // globalCompositeOperation 已在 startDraw 设置
+    } else {
+      bctx.strokeStyle = drawState.color;
+    }
+
+    // 星星/爱心：每 moveDraw 撒 emoji + 画线
+    if (drawState.tool === "star" || drawState.tool === "heart") {
+      var emoji = drawState.tool === "star" ? "⭐" : "💗";
+      var sizeMap2 = { 4: 28, 8: 40, 14: 56 };
+      var fs = sizeMap2[drawState.size] || 36;
+      bctx.font = fs + "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+      bctx.textAlign = "center"; bctx.textBaseline = "middle";
+      var scatter = 3; // 每帧撒 3 个
+      for (var i = 0; i < scatter; i++) {
+        var rx = p.x + (Math.random() - 0.5) * drawState.size * 4;
+        var ry = p.y + (Math.random() - 0.5) * drawState.size * 4;
+        bctx.globalCompositeOperation = "source-over"; // emoji 总是正画
+        bctx.fillText(emoji, rx, ry);
+        if (drawState.tool === "erase-true") bctx.globalCompositeOperation = "destination-out";
+      }
+      // 同时画一条细细的主路径
+      bctx.lineWidth = Math.max(1, drawState.size / 3);
+      bctx.strokeStyle = drawState.color;
+    }
+
+    // 平滑模式下收集点，用贝塞尔
+    if (smoothMode && ["pen","rainbow","star","heart","eraser","erase-true"].indexOf(drawState.tool) >= 0) {
+      smoothPoints.push(p);
+      if (smoothPoints.length >= 3) {
+        var s = smoothPoints;
+        // 三点平滑 curveTo
+        bctx.beginPath();
+        bctx.moveTo(s[s.length-3].x, s[s.length-3].y);
+        var cpx = (s[s.length-2].x + s[s.length-1].x) / 2;
+        var cpy = (s[s.length-2].y + s[s.length-1].y) / 2;
+        bctx.quadraticCurveTo(s[s.length-2].x, s[s.length-2].y, cpx, cpy);
+        bctx.stroke();
+      }
+    } else {
+      bctx.lineTo(p.x, p.y);
+      bctx.stroke();
+    }
+  };
+
+  _endDrawImpl = function () {
+    drawState.drawing = false;
+    drawState.snapshot = null;
+    bctx.globalCompositeOperation = "source-over";
+    smoothPoints = [];
+  };
+
+  // --- 自动平滑开关 ---
+  $("board-smooth-btn").addEventListener("click", function () {
+    smoothMode = !smoothMode;
+    $("board-smooth-btn").classList.toggle("active", smoothMode);
+    showBoardToast(smoothMode ? "平滑：开" : "平滑：关");
+  });
+
+  // --- 真擦除工具切换时提示 ---
+  $("board-tools").addEventListener("click", function (e) {
+    var b = e.target.closest(".tool-btn");
+    if (!b) return;
+    var tool = b.getAttribute("data-tool");
+    if (tool === "erase-true") showBoardToast("真擦除：抠掉像素");
+    else if (tool === "rainbow") showBoardToast("🌈 彩虹笔");
+    else if (tool === "star") showBoardToast("⭐ 喷星星");
+    else if (tool === "heart") showBoardToast("💗 喷爱心");
+  });
+
+  // --- 清空按钮：用新 clearBoard ---
+  $("board-clear").addEventListener("click", function () {
+    pushHistory();
+    applyBackground(currentTheme);
+    templateMode = false;
+    showBoardToast("画布已清空");
+  });
+
+  // --- 保存 PNG ---
+  $("board-save").addEventListener("click", function () {
+    try {
+      var dataUrl = boardCanvas.toDataURL("image/png");
+      var a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = "画一画-" + new Date().toLocaleDateString() + "-" + Math.floor(Math.random()*1000) + ".png";
+      a.click();
+      showBoardToast("💾 已下载");
+    } catch (err) { showBoardToast("保存失败"); }
+  });
+
+  // --- Toast 函数 ---
+  function showBoardToast(msg) {
+    var t = $("board-toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(function () { t.classList.remove("show"); }, 1500);
+  }
+
+  // --- 彩带 confetti ---
+  function spawnBoardConfetti(n) {
+    var emojis = ["🎉","🎊","✨","⭐","🏆","💖","🌟","🎈","🍬","💫","🌈","🎨"];
+    for (var i = 0; i < n; i++) {
+      var el = document.createElement("div");
+      el.className = "bd-confetti";
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      el.style.left = (Math.random() * 100) + "%";
+      el.style.animationDuration = (1.5 + Math.random() * 1.5) + "s";
+      el.style.fontSize = (18 + Math.random() * 18) + "px";
+      document.body.appendChild(el);
+      setTimeout(function () { el.remove(); }, 3000);
+    }
+  }
+
+  // --- Web Speech 朗读鼓励 ---
+  $("board-speak").addEventListener("click", function () {
+    if (!("speechSynthesis" in window)) { showBoardToast("浏览器不支持语音"); return; }
+    var praises = [
+      "哇！画得真好看！",
+      "小朋友真棒！继续加油！",
+      "这幅画太有创意啦！",
+      "你真是个小艺术家！",
+      "颜色选得真漂亮！",
+      "我给你打一百分！"
+    ];
+    var text = praises[Math.floor(Math.random() * praises.length)];
+    var utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "zh-CN";
+    utter.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+    showBoardToast("🔊 " + text);
+  });
+
+  // --- 初始化：模板渲染 + 预设配色重建 ---
+  renderTemplateGrid();
+  rebuildColorSwatches("classic");
+  applyBackground(currentTheme);
+
+  // 暴露给 console 调试（可选）
+  window.__boardDebug = {
+    drawTemplate: function (name) {
+      var t = BOARD_TEMPLATES.find(function (x) { return x.name === name; });
+      if (t) { pushHistory(); applyBackground(currentTheme); drawTemplateToCanvas(t.svg); }
+    }
+  };
 })();
 </script>
 </body>
