@@ -1287,9 +1287,7 @@
   boardCanvas.addEventListener("touchmove", function(e){ _moveDrawImpl(e); }, { passive: false });
   window.addEventListener("touchend", function(e){ _endDrawImpl(e); });
 
-  // clearBoard 重写为使用当前主题背景
-  function clearBoard() { applyBackground(currentTheme); templateMode = false; }
-  var _undoImpl = undoBoard;
+  var _undoImpl = undoBoard; // 留着后面赋值替换
   $("board-undo").addEventListener("click", function(){ _undoImpl(); });
   $("board-close").addEventListener("click", function () { board.classList.remove("show"); });
   boardBtn.addEventListener("click", function () { board.classList.add("show"); });
@@ -1422,10 +1420,6 @@
       bctx.stroke();
     }
   }
-
-  // 重写 clearBoard 使用当前主题
-  function clearBoardV2() { applyBackground(currentTheme); templateMode = false; }
-  function reloadClear() { /* 占位，applyBackground 已做所有事 */ }
 
   $("board-theme-btn").addEventListener("click", function () {
     $("board-theme-panel").classList.toggle("show");
@@ -1739,6 +1733,9 @@
   renderTemplateGrid();
   rebuildColorSwatches("classic");
   applyBackground(currentTheme);
+
+  // clearBoard 重写为使用当前主题背景（必须等 applyBackground 和 currentTheme 都定义好之后）
+  clearBoard = function () { applyBackground(currentTheme); templateMode = false; };
 
   // 暴露给 console 调试（可选）
   window.__boardDebug = {
