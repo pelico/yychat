@@ -186,24 +186,29 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 
   // 将一行向左合并一次（核心算法）
   function slideLeft(row) {
-    var out = new Array(row.length).fill(0);
-    var write = 0, i = 0;
-    var gotMerged = false;
-    var mergedIdx = []; // 哪些位置是本次 merge 出来的
-    while (i < row.length) {
-      if (row[i] === 0) { i++; continue; }
-      if (i + 1 < row.length && row[i + 1] === row[i] && row[i] !== 0) {
-        out[write] = row[i] * 2;
-        score += out[write];
-        mergedIdx.push(write);
-        if (out[write] === 2048) won2048 = true;
-        i += 2;
-      } else {
-        out[write] = row[i];
-        i++;
-      }
-      write++;
+    // 经典两步法：先把非零元素挤到一端，再合并相邻相同
+    var filtered = [];
+    for (var i = 0; i < row.length; i++) {
+      if (row[i] !== 0) filtered.push(row[i]);
     }
+    var out = [];
+    var mergedIdx = [];
+    var j = 0;
+    while (j < filtered.length) {
+      if (j + 1 < filtered.length && filtered[j + 1] === filtered[j]) {
+        var merged = filtered[j] * 2;
+        out.push(merged);
+        score += merged;
+        mergedIdx.push(out.length - 1);
+        if (merged === 2048) won2048 = true;
+        j += 2;
+      } else {
+        out.push(filtered[j]);
+        j++;
+      }
+    }
+    // 尾部补 0 到原始长度
+    while (out.length < row.length) out.push(0);
     return { row: out, merged: mergedIdx };
   }
 
@@ -217,10 +222,12 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 
   function move(dir) {
     if (state !== 'playing' || inputLocked) return false;
-    var rotations = { left: 0, up: 1, right: 2, down: 3 }[dir];
+    // 源码 rotateCW 把列方向倒序映射到行方向，导致 up/down 反了
+    // 这里重新映射：up 需要逆时针旋转（等效 rotateCW 3 次），down 保持顺时针一次
+    var rotations = { left: 0, up: 3, right: 2, down: 1 }[dir];
     var g = grid.map(function(row) { return row.slice(); });
 
-    // 旋转到 left，slideLeft，再旋转回来
+    // 旋转到 left 视角，slideLeft，再旋转回来
     for (var i = 0; i < rotations; i++) g = rotateCW(g);
 
     var changed = false;
