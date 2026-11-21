@@ -1289,7 +1289,6 @@
 
   // clearBoard 重写为使用当前主题背景
   function clearBoard() { applyBackground(currentTheme); templateMode = false; }
-  $("board-clear").addEventListener("click", function () { pushHistory(); clearBoard(); });
   var _undoImpl = undoBoard;
   $("board-undo").addEventListener("click", function(){ _undoImpl(); });
   $("board-close").addEventListener("click", function () { board.classList.remove("show"); });
@@ -1534,7 +1533,6 @@
       bctx.putImageData(boardRedoHistory.pop(), 0, 0);
     } catch (e) {}
   }
-  $("board-undo").addEventListener("click", undoBoard);
   $("board-redo").addEventListener("click", redoBoard);
 
   // --- 魔法笔刷 / 透明橡皮 ---
