@@ -431,7 +431,7 @@
     <button class="board-btn ghost" id="board-undo">↩</button>
     <button class="board-btn ghost" id="board-redo">↪</button>
     <button class="board-btn ghost" id="board-clear">清空</button>
-    <button class="board-btn ghost" id="board-smooth-btn" title="平滑线条">〰</button>
+    <button class="board-btn ghost active" id="board-smooth-btn" title="平滑线条：已开启（点击关闭）" aria-pressed="true">〰</button>
     <button class="board-btn ghost" id="board-speak" title="朗读">🔊</button>
     <button class="board-btn ghost" id="board-save">💾</button>
     <input type="color" id="board-color-picker" style="display:none" />
@@ -1612,7 +1612,7 @@
 
   // --- 魔法笔刷 / 透明橡皮 ---
   var rainbowHue = 0;
-  var smoothMode = false;
+  var smoothMode = true;
   var smoothPoints = [];
 
   // 重写 startDraw 支持新工具（赋值给 wrapper 变量）
@@ -1746,6 +1746,15 @@
   };
 
   _endDrawImpl = function () {
+    // 平滑模式：补上最后半段（中点法只画到两点中间）
+    if (drawState.drawing && smoothMode && drawState.prevMid && drawState.prevPoint &&
+        ["pen","rainbow","eraser","erase-true"].indexOf(drawState.tool) >= 0) {
+      bctx.beginPath();
+      bctx.moveTo(drawState.prevMid.x, drawState.prevMid.y);
+      bctx.lineTo(drawState.prevPoint.x, drawState.prevPoint.y);
+      bctx.stroke();
+      drawState.prevMid = null;
+    }
     drawState.drawing = false;
     drawState.snapshot = null;
     bctx.globalCompositeOperation = "source-over";
