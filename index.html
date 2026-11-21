@@ -1403,8 +1403,11 @@
 
   function applyBackground(theme) {
     var t = THEMES[theme] || THEMES.white;
-    // 清掉所有主题 class
-    Object.keys(THEMES).forEach(function (k) { boardCanvas.classList.remove(THEMES[k].canvasClass); });
+    // 清掉所有主题 class（注意：classList.remove("") 会抛异常，必须过滤空字符串）
+    Object.keys(THEMES).forEach(function (k) {
+      var cls = THEMES[k].canvasClass;
+      if (cls) boardCanvas.classList.remove(cls);
+    });
     if (t.canvasClass) boardCanvas.classList.add(t.canvasClass);
     // 填底色
     bctx.fillStyle = t.fill;
@@ -1433,6 +1436,14 @@
     pushHistory();
     currentTheme = theme;
     applyBackground(theme);
+    // 换背景后如果正在用模板，重新铺一层模板，避免模板被清掉
+    if (templateMode && currentTemplateName) {
+      var tpl = null;
+      for (var i = 0; i < BOARD_TEMPLATES.length; i++) {
+        if (BOARD_TEMPLATES[i].name === currentTemplateName) { tpl = BOARD_TEMPLATES[i]; break; }
+      }
+      if (tpl) drawTemplateToCanvas(tpl.svg);
+    }
     // 选了黑板自动切白色画笔
     if (theme === "blackboard" && drawState.color === "#000000") {
       setBoardColor("#ffffff");
