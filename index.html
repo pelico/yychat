@@ -1567,6 +1567,12 @@
     drawState.drawing = true;
     drawState.startX = p.x; drawState.startY = p.y;
     drawState.lastStamp = null;
+    if (drawState.tool === "rainbow") {
+      drawState.rainbowDist = 0;          // 本笔已画距离
+      drawState.rainbowLast = null;       // 上一个点
+      drawState.rainbowBaseHue = rainbowHue;      // 起笔锁定起始色相
+      rainbowHue = (rainbowHue + 47) % 360;       // 下一笔换个起始色
+    }
     smoothPoints = [p];
     if (drawState.tool === "line" || drawState.tool === "rect" || drawState.tool === "circle") {
       drawState.snapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height);
@@ -1603,17 +1609,16 @@
       return;
     }
 
-    // 彩虹笔：渐变 strokeStyle（颜色变化按时间节流，避免太快闪）
+    // 彩虹笔：起笔时锁定起始色相，之后颜色只随「已画距离」连续变化（停笔就不变）
     if (drawState.tool === "rainbow") {
-      var now = Date.now();
-      if (!drawState.lastHueT || now - drawState.lastHueT > 60) {
-        rainbowHue = (rainbowHue + 12) % 360;
-        drawState.lastHueT = now;
+      var prevP = drawState.rainbowLast;
+      if (prevP) {
+        var sx = p.x - prevP.x, sy = p.y - prevP.y;
+        drawState.rainbowDist += Math.sqrt(sx * sx + sy * sy);
       }
-      var grad = bctx.createLinearGradient(drawState.startX, 0, p.x, 0);
-      grad.addColorStop(0, "hsl(" + rainbowHue + ",90%,55%)");
-      grad.addColorStop(1, "hsl(" + ((rainbowHue + 60) % 360) + ",90%,55%)");
-      bctx.strokeStyle = grad;
+      drawState.rainbowLast = p;
+      var hue = (drawState.rainbowBaseHue + drawState.rainbowDist * 0.7) % 360;
+      bctx.strokeStyle = "hsl(" + hue.toFixed(0) + ",90%,55%)";
     } else if (drawState.tool === "eraser") {
       bctx.strokeStyle = "#ffffff";
     } else if (drawState.tool === "erase-true") {
