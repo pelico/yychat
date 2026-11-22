@@ -326,8 +326,16 @@
   }
   .board-popup-panel.show { display: flex; }
   .panel-title { font-size: 12px; color: var(--muted); margin-right: 4px; align-self: center; }
-  #board-template-panel { flex-direction: column; flex-wrap: nowrap; max-height: 38vh; overflow-y: auto; }
-  #board.panel-open #board-canvas { max-height: 42vh; }
+  #board-template-panel {
+    /* 侧边抽屉：展开时覆盖在右侧，不再挤压画布 */
+    position: fixed; top: 12px; right: 12px; bottom: 12px;
+    width: min(340px, 88vw); max-width: 340px; max-height: none;
+    margin: 0; z-index: 60;
+    flex-direction: column; flex-wrap: nowrap; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,.55);
+  }
+  #template-hide { margin-left: auto; }
+  #board-template-panel .sticker-hint { flex: 1 1 100%; min-width: 0; order: 3; line-height: 1.5; }
   .sticker-head { display: flex; align-items: center; gap: 8px; width: 100%; flex-wrap: wrap; }
   .sticker-hint { font-size: 11px; color: var(--muted); flex: 1; min-width: 160px; }
   .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px,1fr)); gap: 6px; flex: 1; width: 100%; }
@@ -1253,6 +1261,9 @@
   var boardCanvas = $("board-canvas");
   var pendingLayer = $("board-pending-layer");
   var bctx = boardCanvas.getContext("2d");
+  // 纯背景备份层：抠除后用它补回背景，避免画布出现透明（导出会变黑）
+  var bgCanvas = document.createElement("canvas");
+  var bgCtx = bgCanvas.getContext("2d");
   var boardHistory = [];
 
   function clearBoard() {
@@ -1806,12 +1817,10 @@
   }
 
   $("board-template-btn").addEventListener("click", function () {
-    var opened = $("board-template-panel").classList.toggle("show");
-    $("board").classList.toggle("panel-open", opened);
+    $("board-template-panel").classList.toggle("show");
   });
   $("template-hide").addEventListener("click", function () {
     $("board-template-panel").classList.remove("show");
-    $("board").classList.remove("panel-open");
     commitPendingSticker();
     currentSticker = null;
     drawState.tool = "pen";
@@ -2088,10 +2097,15 @@
     // 场景背景
     if (t.scene && SCENES[t.scene]) SCENES[t.scene]();
     bctx.restore();
+    // 备份纯背景（抠除时用来补回背景，保证画布始终不透明）
+    bgCanvas.width = boardCanvas.width;
+    bgCanvas.height = boardCanvas.height;
+    bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+    bgCtx.drawImage(boardCanvas, 0, 0);
     // 记录场景基线：打分时只算孩子新画的内容，不把背景图案当成画作
     bgSnapshot = null;
     if (t.scene) {
-      try { bgSnapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height).data; } catch (e) {}
+      try { bgSnapshot = bgCtx.getImageData(0, 0, bgCanvas.width, bgCanvas.height).data; } catch (e) {}
     }
   }
 
@@ -2360,6 +2374,11 @@
     }
     drawState.drawing = false;
     drawState.snapshot = null;
+    // 抠除后把背景补回透明区域：屏幕上不会露白，导出的图片也不会变黑
+    if (drawState.tool === "erase-true") {
+      bctx.globalCompositeOperation = "destination-over";
+      bctx.drawImage(bgCanvas, 0, 0);
+    }
     bctx.globalCompositeOperation = "source-over";
     smoothPoints = [];
   };
