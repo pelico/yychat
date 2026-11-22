@@ -275,6 +275,16 @@
   }
   .pending-sticker.dragging { cursor: grabbing; }
   .pending-sticker img { width: 100%; height: 100%; display: block; pointer-events: none; }
+  .pending-text {
+    transform: translateY(-50%); border: none; border-radius: 4px;
+    outline: 2px dashed var(--accent); outline-offset: 6px;
+    background: rgba(255,255,255,.12); font-weight: 700; line-height: 1.15; white-space: pre;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .pending-text.dragging { cursor: grabbing; }
+  .pending-text .pt-text { display: block; pointer-events: none; }
+  .pending-text .pt-ok { background: #22c55e; color: #fff; }
+  .pending-text .pt-cancel { background: #ef4444; color: #fff; }
   .pending-resize {
     position: absolute; right: -9px; bottom: -9px; width: 20px; height: 20px;
     border-radius: 50%; background: var(--accent); border: 2px solid #fff;
@@ -1424,12 +1434,13 @@
 
   var _undoImpl = undoBoard; // 留着后面赋值替换
   $("board-undo").addEventListener("click", function(){ _undoImpl(); });
-  $("board-close").addEventListener("click", function () { commitPendingSticker(); board.classList.remove("show"); });
+  $("board-close").addEventListener("click", function () { commitPendingText(); commitPendingSticker(); board.classList.remove("show"); });
   boardBtn.addEventListener("click", function () { board.classList.add("show"); });
 
   $("board-send").addEventListener("click", function () {
     if (!connected) { addSys("未连接，无法发送"); return; }
-    // 先把手上的素材落定，再截图，否则会漏掉
+    // 先把手上的素材/文字落定，再截图，否则会漏掉
+    commitPendingText();
     commitPendingSticker(function () {
       var dataUrl = boardCanvas.toDataURL("image/jpeg", 0.7);
       if (dataUrl.length > 120000) dataUrl = boardCanvas.toDataURL("image/jpeg", 0.45);
@@ -2015,8 +2026,105 @@
     if (pendingEl) pendingEl.style.display = "none";
   }
 
+  // ---------- 待放置文字（可拖动调位置） ----------
+  var pendingTextState = null, pendingTextEl = null;
+
+  function textFontSize() {
+    var m = { 4: 30, 8: 46, 14: 62 };
+    return m[drawState.size] || 40;
+  }
+
+  function ensurePendingTextEl() {
+    if (pendingTextEl) return;
+    pendingTextEl = document.createElement("div");
+    pendingTextEl.className = "pending-sticker pending-text";
+    pendingTextEl.innerHTML = '<span class="pt-text"></span>' +
+      '<div class="pending-actions">' +
+        '<button type="button" class="pt-ok" title="放好">✓</button>' +
+        '<button type="button" class="pt-cancel" title="取消">✕</button>' +
+      '</div>';
+    pendingLayer.appendChild(pendingTextEl);
+    pendingTextEl.addEventListener("pointerdown", function (ev) {
+      if (ev.target.closest("button") || !pendingTextState) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      var sx = ev.clientX, sy = ev.clientY, ox = pendingTextState.x, oy = pendingTextState.y;
+      pendingTextEl.setPointerCapture(ev.pointerId);
+      pendingTextEl.classList.add("dragging");
+      function mv(e) {
+        if (!pendingTextState) return;
+        pendingTextState.x = ox + (e.clientX - sx);
+        pendingTextState.y = oy + (e.clientY - sy);
+        clampPendingText();
+        layoutPendingText();
+      }
+      function up() {
+        pendingTextEl.classList.remove("dragging");
+        try { pendingTextEl.releasePointerCapture(ev.pointerId); } catch (err) {}
+        pendingTextEl.removeEventListener("pointermove", mv);
+        pendingTextEl.removeEventListener("pointerup", up);
+        pendingTextEl.removeEventListener("pointercancel", up);
+      }
+      pendingTextEl.addEventListener("pointermove", mv);
+      pendingTextEl.addEventListener("pointerup", up);
+      pendingTextEl.addEventListener("pointercancel", up);
+    });
+    pendingTextEl.querySelector(".pt-ok").addEventListener("click", function (e) {
+      e.stopPropagation(); commitPendingText();
+    });
+    pendingTextEl.querySelector(".pt-cancel").addEventListener("click", function (e) {
+      e.stopPropagation(); discardPendingText();
+    });
+  }
+
+  function layoutPendingText() {
+    if (!pendingTextEl || !pendingTextState) return;
+    var st = pendingTextState;
+    pendingTextEl.style.left = st.x + "px";
+    pendingTextEl.style.top = st.y + "px";
+    pendingTextEl.style.fontSize = st.size + "px";
+    pendingTextEl.style.color = st.color;
+    pendingTextEl.querySelector(".pt-text").textContent = st.text;
+  }
+
+  function clampPendingText() {
+    if (!pendingTextEl || !pendingTextState) return;
+    var st = pendingTextState;
+    var W = pendingLayer.clientWidth, H = pendingLayer.clientHeight;
+    var w = pendingTextEl.offsetWidth, h = pendingTextEl.offsetHeight;
+    st.x = Math.max(0, Math.min(Math.max(0, W - w), st.x));
+    st.y = Math.max(h / 2, Math.min(H - h / 2, st.y));
+  }
+
+  function showPendingText(text, x, y) {
+    if (pendingTextState) commitPendingText();
+    ensurePendingTextEl();
+    pendingTextState = { text: text, x: x, y: y, color: drawState.color, size: textFontSize() };
+    pendingTextEl.style.display = "block";
+    layoutPendingText();
+    clampPendingText();
+    layoutPendingText();
+    showBoardToast("拖动文字调整位置，点 ✓ 放好");
+  }
+
+  function commitPendingText() {
+    if (!pendingTextEl || !pendingTextState || pendingTextEl.style.display === "none") return;
+    var k = pendingScale();
+    var st = pendingTextState;
+    pushHistory();
+    pendingTextState = null;
+    pendingTextEl.style.display = "none";
+    recordBoardAction("text", st.color);
+    paintText(st.text, st.x * k, st.y * k, st.color, st.size * k);
+  }
+
+  function discardPendingText() {
+    pendingTextState = null;
+    if (pendingTextEl) pendingTextEl.style.display = "none";
+  }
+
   // 窗口尺寸变了，待放置素材的像素坐标会失准，直接落定
-  window.addEventListener("resize", function () { commitPendingSticker(); });
+  window.addEventListener("resize", function () { commitPendingSticker(); commitPendingText(); });
 
   // --- 英语磨耳朵：选素材时朗读英文并显示单词 ---
   var wordTimer = null;
@@ -2090,6 +2198,7 @@
   });
   $("template-hide").addEventListener("click", function () {
     $("board-template-panel").classList.remove("show");
+    commitPendingText();
     commitPendingSticker();
     currentSticker = null;
     drawState.tool = "pen";
@@ -2751,6 +2860,7 @@
     Array.prototype.forEach.call($("board-theme-panel").querySelectorAll(".theme-btn"), function (x) { x.classList.remove("active"); });
     btn.classList.add("active");
     var theme = btn.getAttribute("data-theme");
+    commitPendingText();
     pushHistory();
     currentTheme = theme;
     applyBackground(theme);
@@ -2856,18 +2966,13 @@
   var smoothMode = true;
   var smoothPoints = [];
 
-  // 文字工具：点击画布输入一段文字
-  function drawTextAt(p, text) {
-    var sizeMap = { 4: 30, 8: 46, 14: 62 };
-    var fs = sizeMap[drawState.size] || 40;
+  // 把文字画进画布
+  function paintText(text, x, y, color, fs) {
     bctx.save();
     bctx.font = "700 " + fs + "px 'PingFang SC','Microsoft YaHei','Segoe UI',sans-serif";
-    bctx.fillStyle = drawState.color;
+    bctx.fillStyle = color;
     bctx.textAlign = "left";
     bctx.textBaseline = "middle";
-    var w = bctx.measureText(text).width;
-    var x = Math.max(8, Math.min(p.x, boardCanvas.width - w - 8));
-    var y = Math.min(Math.max(p.y, fs / 2 + 4), boardCanvas.height - fs / 2 - 4);
     bctx.fillText(text, x, y);
     bctx.restore();
   }
@@ -2876,15 +2981,12 @@
   _startDrawImpl = function (e) {
     e.preventDefault();
     var p = getPos(e);
-    // 文字工具：先弹输入框，确认后再落笔
+    // 文字工具：输入后先悬浮预览，可拖动调位置，确认再落笔
     if (drawState.tool === "text") {
       drawState.drawing = false;
+      if (pendingTextState) { commitPendingText(); return; }
       var txt = window.prompt("输入文字（中文或英文都可以）");
-      if (txt && txt.trim()) {
-        pushHistory();
-        recordBoardAction("text", drawState.color);
-        drawTextAt(p, txt.trim());
-      }
+      if (txt && txt.trim()) showPendingText(txt.trim(), p.x, p.y);
       return;
     }
     // 素材贴纸：画布上点一下 = 把当前待放置素材落定（不额外压历史栈）
@@ -3059,6 +3161,7 @@
     var b = e.target.closest(".tool-btn");
     if (!b) return;
     var tool = b.getAttribute("data-tool");
+    commitPendingText();             // 换工具时先把待放置文字落定
     commitPendingSticker();          // 换工具时把手上的素材落定
     boardCanvas.style.cursor = tool === "fill" ? "cell" : (tool === "text" ? "text" : "crosshair");
     if (tool === "erase-true") showBoardToast("真擦除：抠掉像素");
@@ -3071,6 +3174,7 @@
 
   // --- 清空按钮：用新 clearBoard ---
   $("board-clear").addEventListener("click", function () {
+    discardPendingText();
     pushHistory();
     applyBackground(currentTheme);
     resetBoardStats();
@@ -3079,6 +3183,7 @@
 
   // --- 保存 PNG ---
   $("board-save").addEventListener("click", function () {
+    commitPendingText();
     commitPendingSticker(function () {
       try {
         var dataUrl = boardCanvas.toDataURL("image/png");
