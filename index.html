@@ -1864,9 +1864,9 @@
 
   function clampPending() {
     var st = pendingState, W = pendingLayer.clientWidth, H = pendingLayer.clientHeight;
-    var half = st.size / 2;
-    st.x = Math.max(half, Math.min(W - half, st.x));
-    st.y = Math.max(half, Math.min(H - half, st.y));
+    // 只限制中心点留在画布内：放大的素材可以有一半探出画布，方便贴边/局部取景
+    st.x = Math.max(0, Math.min(W, st.x));
+    st.y = Math.max(0, Math.min(H, st.y));
   }
 
   function ensurePendingEl() {
