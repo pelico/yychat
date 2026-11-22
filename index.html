@@ -280,6 +280,12 @@
     border-radius: 50%; background: var(--accent); border: 2px solid #fff;
     cursor: nwse-resize; touch-action: none;
   }
+  .pending-rotate {
+    position: absolute; left: -9px; top: -9px; width: 20px; height: 20px;
+    border-radius: 50%; background: #f59e0b; border: 2px solid #fff;
+    cursor: grab; touch-action: none; font-size: 11px; color: #fff; line-height: 1;
+    display: flex; align-items: center; justify-content: center; user-select: none;
+  }
   .pending-actions {
     position: absolute; left: 50%; top: -36px; transform: translateX(-50%);
     display: flex; gap: 6px; line-height: 1;
@@ -320,7 +326,8 @@
   }
   .board-popup-panel.show { display: flex; }
   .panel-title { font-size: 12px; color: var(--muted); margin-right: 4px; align-self: center; }
-  #board-template-panel { flex-direction: column; flex-wrap: nowrap; max-height: 46vh; overflow-y: auto; }
+  #board-template-panel { flex-direction: column; flex-wrap: nowrap; max-height: 38vh; overflow-y: auto; }
+  #board.panel-open #board-canvas { max-height: 42vh; }
   .sticker-head { display: flex; align-items: center; gap: 8px; width: 100%; flex-wrap: wrap; }
   .sticker-hint { font-size: 11px; color: var(--muted); flex: 1; min-width: 160px; }
   .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px,1fr)); gap: 6px; flex: 1; width: 100%; }
@@ -516,7 +523,7 @@
   <div id="board-template-panel" class="board-popup-panel">
     <div class="sticker-head">
       <span class="panel-title">🧩 素材库</span>
-      <span class="sticker-hint">选一个素材 → 点画布放置，可以重复点很多个；大小跟随「粗细」</span>
+      <span class="sticker-hint">选一个素材到画布上：拖动摆位置，拉 ↘ 改大小，拖 ↻ 调方向，✓ 放好；可以接着选下一个</span>
       <button class="board-btn ghost" id="template-hide" title="退出素材模式，回到画笔">✏️ 回到画笔</button>
     </div>
     <div class="template-grid" id="template-grid"></div>
@@ -1399,8 +1406,8 @@
   // ======== 画板升级模块 ========
 
   // --- 素材贴纸库（可重复点击放置） ---
+  // --- 素材贴纸库（可重复点击放置） ---
   var STICKERS = [
-    // 天空
     { cat: "天空", name: "太阳", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="22" fill="#fbbf24"/><g stroke="#f59e0b" stroke-width="5" stroke-linecap="round"><path d="M50 10v10M50 80v10M10 50h10M80 50h10M22 22l7 7M71 71l7 7M78 22l-7 7M29 71l-7 7"/></g></svg>' },
     { cat: "天空", name: "月亮", svg: '<svg viewBox="0 0 100 100"><path d="M64 12a40 40 0 1 0 0 76 32 32 0 0 1 0-76z" fill="#fde68a" stroke="#f59e0b" stroke-width="3"/></svg>' },
     { cat: "天空", name: "星星", svg: '<svg viewBox="0 0 100 100"><path d="M50 10l11 26 28 3-21 19 6 28-24-14-24 14 6-28-21-19 28-3z" fill="#fbbf24" stroke="#f59e0b" stroke-width="3" stroke-linejoin="round"/></svg>' },
@@ -1409,7 +1416,6 @@
     { cat: "天空", name: "雨滴", svg: '<svg viewBox="0 0 100 100"><path d="M50 12c10 16 20 26 20 38a20 20 0 0 1-40 0c0-12 10-22 20-38z" fill="#60a5fa" stroke="#3b82f6" stroke-width="3"/></svg>' },
     { cat: "天空", name: "雪花", svg: '<svg viewBox="0 0 100 100"><g stroke="#38bdf8" stroke-width="4" stroke-linecap="round" fill="none"><path d="M50 12v76M17 31l66 38M83 31L17 69"/><path d="M50 22l-7-7M50 22l7-7M50 78l-7 7M50 78l7 7"/></g></svg>' },
     { cat: "天空", name: "闪电", svg: '<svg viewBox="0 0 100 100"><path d="M56 8L26 56h20l-6 36 34-52H54z" fill="#facc15" stroke="#f59e0b" stroke-width="3" stroke-linejoin="round"/></svg>' },
-    // 植物
     { cat: "植物", name: "大树", svg: '<svg viewBox="0 0 100 100"><rect x="44" y="60" width="12" height="32" rx="4" fill="#92400e"/><circle cx="50" cy="42" r="24" fill="#22c55e"/><circle cx="30" cy="54" r="16" fill="#16a34a"/><circle cx="70" cy="54" r="16" fill="#16a34a"/></svg>' },
     { cat: "植物", name: "松树", svg: '<svg viewBox="0 0 100 100"><rect x="46" y="72" width="8" height="20" fill="#92400e"/><path d="M50 10l22 32H28z" fill="#15803d"/><path d="M50 34l26 34H24z" fill="#16a34a"/><path d="M50 56l30 26H20z" fill="#22c55e"/></svg>' },
     { cat: "植物", name: "小花", svg: '<svg viewBox="0 0 100 100"><path d="M50 46v48" stroke="#16a34a" stroke-width="5"/><path d="M50 70c-10 0-16 6-16 12 8 0 16-4 16-12z" fill="#22c55e"/><g fill="#f472b6"><circle cx="50" cy="22" r="10"/><circle cx="68" cy="34" r="10"/><circle cx="62" cy="54" r="10"/><circle cx="38" cy="54" r="10"/><circle cx="32" cy="34" r="10"/></g><circle cx="50" cy="38" r="9" fill="#fbbf24"/></svg>' },
@@ -1418,20 +1424,34 @@
     { cat: "植物", name: "仙人掌", svg: '<svg viewBox="0 0 100 100"><rect x="43" y="26" width="16" height="56" rx="8" fill="#22c55e"/><path d="M30 44v10a8 8 0 0 0 8 8h5M70 36v16a8 8 0 0 1-8 8h-5" fill="none" stroke="#16a34a" stroke-width="8" stroke-linecap="round"/><rect x="30" y="78" width="42" height="14" rx="4" fill="#c2410c"/></svg>' },
     { cat: "植物", name: "草丛", svg: '<svg viewBox="0 0 100 100"><g stroke="#16a34a" stroke-width="6" fill="none" stroke-linecap="round"><path d="M20 84c0-20 6-32 6-32s4 14 8 32"/><path d="M42 84c0-26 8-38 8-38s4 18 10 38"/><path d="M66 84c0-18 8-28 8-28s4 12 8 28"/></g></svg>' },
     { cat: "植物", name: "树叶", svg: '<svg viewBox="0 0 100 100"><path d="M82 18C40 18 18 40 18 72c32 0 54-22 64-54z" fill="#22c55e"/><path d="M82 18L24 76" stroke="#15803d" stroke-width="3"/></svg>' },
-    // 动物
-    { cat: "动物", name: "小猫", svg: '<svg viewBox="0 0 100 100"><path d="M26 30l4 18" stroke="#f59e0b" stroke-width="10" stroke-linecap="round"/><path d="M74 30l-4 18" stroke="#f59e0b" stroke-width="10" stroke-linecap="round"/><circle cx="50" cy="52" r="26" fill="#fbbf24"/><circle cx="40" cy="48" r="4" fill="#1f2937"/><circle cx="60" cy="48" r="4" fill="#1f2937"/><path d="M50 56l-5 5h10z" fill="#f97316"/><path d="M32 58h10M58 58h10" stroke="#1f2937" stroke-width="2"/></svg>' },
-    { cat: "动物", name: "小狗", svg: '<svg viewBox="0 0 100 100"><ellipse cx="24" cy="42" rx="8" ry="14" fill="#b45309" transform="rotate(-20 24 42)"/><ellipse cx="76" cy="42" rx="8" ry="14" fill="#b45309" transform="rotate(20 76 42)"/><circle cx="50" cy="52" r="26" fill="#d97706"/><circle cx="40" cy="48" r="4" fill="#1f2937"/><circle cx="60" cy="48" r="4" fill="#1f2937"/><ellipse cx="50" cy="62" rx="7" ry="5" fill="#1f2937"/></svg>' },
-    { cat: "动物", name: "小牛", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="56" rx="27" ry="21" fill="#f8fafc" stroke="#94a3b8" stroke-width="3"/><path d="M30 40c-6-8-13-8-13-8s2 10 8 12M70 40c6-8 13-8 13-8s-2 10-8 12" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/><circle cx="40" cy="52" r="4" fill="#1f2937"/><circle cx="60" cy="52" r="4" fill="#1f2937"/><ellipse cx="50" cy="66" rx="12" ry="8" fill="#fda4af"/></svg>' },
-    { cat: "动物", name: "小羊", svg: '<svg viewBox="0 0 100 100"><g fill="#fff" stroke="#cbd5e1" stroke-width="3"><circle cx="38" cy="58" r="15"/><circle cx="56" cy="60" r="14"/><circle cx="48" cy="46" r="14"/></g><circle cx="70" cy="48" r="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="3"/><circle cx="66" cy="46" r="2.5" fill="#1f2937"/><circle cx="75" cy="46" r="2.5" fill="#1f2937"/></svg>' },
-    { cat: "动物", name: "小鸡", svg: '<svg viewBox="0 0 100 100"><circle cx="48" cy="52" r="24" fill="#fde047"/><path d="M48 28v-8" stroke="#f59e0b" stroke-width="4"/><circle cx="41" cy="46" r="3.5" fill="#1f2937"/><circle cx="57" cy="46" r="3.5" fill="#1f2937"/><path d="M48 54l10 4-10 4z" fill="#f97316"/><path d="M40 76l-5 10M56 76l5 10" stroke="#f97316" stroke-width="4" stroke-linecap="round"/></svg>' },
-    { cat: "动物", name: "小鸟", svg: '<svg viewBox="0 0 100 100"><path d="M28 52c-10-8-18-6-18-6s4 10 14 12z" fill="#0284c7"/><ellipse cx="48" cy="56" rx="26" ry="17" fill="#38bdf8"/><circle cx="70" cy="44" r="12" fill="#0ea5e9"/><circle cx="74" cy="42" r="3" fill="#1f2937"/><path d="M82 46l10 4-10 4z" fill="#f59e0b"/></svg>' },
-    { cat: "动物", name: "小鱼", svg: '<svg viewBox="0 0 100 100"><path d="M14 50c14-20 38-20 52 0-14 20-38 20-52 0z" fill="#fb923c"/><path d="M66 50l20-14v28z" fill="#f97316"/><circle cx="32" cy="45" r="3.5" fill="#1f2937"/></svg>' },
+    { cat: "植物", name: "玫瑰", svg: '<svg viewBox="0 0 100 100"><path d="M50 44v44" stroke="#16a34a" stroke-width="5"/><path d="M50 66c-10-2-14 4-14 10 8 2 14-2 14-10z" fill="#22c55e"/><g fill="#f43f5e"><circle cx="50" cy="26" r="10"/><circle cx="39" cy="34" r="9"/><circle cx="61" cy="34" r="9"/><circle cx="44" cy="44" r="9"/><circle cx="56" cy="44" r="9"/></g><circle cx="50" cy="35" r="7" fill="#be123c"/></svg>' },
+    { cat: "植物", name: "竹子", svg: '<svg viewBox="0 0 100 100"><g stroke="#22c55e" stroke-width="8" stroke-linecap="round"><path d="M38 88V14M62 88V28"/></g><g stroke="#16a34a" stroke-width="4"><path d="M38 42h10M62 54h10M38 64h10M62 74h10"/></g><g fill="#4ade80"><path d="M38 30c-8-6-16-4-18 0 8 6 14 6 18 0z"/><path d="M62 44c8-6 16-4 18 0-8 6-14 6-18 0z"/></g></svg>' },
+    { cat: "植物", name: "苹果树", svg: '<svg viewBox="0 0 100 100"><rect x="45" y="58" width="10" height="34" rx="4" fill="#92400e"/><circle cx="50" cy="40" r="24" fill="#22c55e"/><circle cx="30" cy="52" r="14" fill="#16a34a"/><circle cx="70" cy="52" r="14" fill="#16a34a"/><g fill="#ef4444"><circle cx="38" cy="38" r="4"/><circle cx="58" cy="34" r="4"/><circle cx="64" cy="50" r="4"/><circle cx="44" cy="54" r="4"/></g></svg>' },
+    { cat: "植物", name: "南瓜", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="62" rx="30" ry="22" fill="#f97316"/><path d="M50 40v44M34 42c-6 8-6 32 0 40M66 42c6 8 6 32 0 40" stroke="#ea580c" stroke-width="2.5" fill="none"/><path d="M50 40c0-8 4-12 10-14" stroke="#16a34a" stroke-width="5" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小猫", svg: '<svg viewBox="0 0 100 100"><path d="M70 56c8 0 12-6 12-12" stroke="#f59e0b" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="44" cy="58" rx="26" ry="15" fill="#fbbf24"/><circle cx="74" cy="42" r="13" fill="#fbbf24"/><path d="M66 33l-1-10 8 6zM82 33l1-10-8 6z" fill="#f59e0b"/><circle cx="70" cy="41" r="2.2" fill="#1f2937"/><circle cx="79" cy="41" r="2.2" fill="#1f2937"/><path d="M73 47l-3 3h6z" fill="#f472b6"/><path d="M30 70v10M42 70v10M54 70v10" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小狗", svg: '<svg viewBox="0 0 100 100"><ellipse cx="44" cy="58" rx="25" ry="14" fill="#d97706"/><path d="M68 54c8 2 12-2 12-8" stroke="#b45309" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="72" cy="42" r="12" fill="#d97706"/><ellipse cx="63" cy="36" rx="5" ry="8" fill="#b45309" transform="rotate(-15 63 36)"/><circle cx="73" cy="40" r="2" fill="#1f2937"/><ellipse cx="82" cy="47" rx="6" ry="4" fill="#fde68a"/><circle cx="84" cy="45" r="2" fill="#1f2937"/><path d="M30 70v12M42 70v12M54 70v12" stroke="#b45309" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小牛", svg: '<svg viewBox="0 0 100 100"><ellipse cx="44" cy="56" rx="27" ry="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.5"/><ellipse cx="34" cy="50" rx="8" ry="6" fill="#1f2937" opacity=".7"/><ellipse cx="52" cy="64" rx="7" ry="5" fill="#1f2937" opacity=".7"/><circle cx="74" cy="42" r="13" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.5"/><path d="M66 32c-4-6-9-6-9-6s1 7 5 9M82 32c4-6 9-6 9-6s-1 7-5 9" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/><circle cx="70" cy="40" r="2" fill="#1f2937"/><circle cx="79" cy="40" r="2" fill="#1f2937"/><ellipse cx="77" cy="48" rx="7" ry="5" fill="#fda4af"/><path d="M26 70v12M40 70v12M54 70v12" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小羊", svg: '<svg viewBox="0 0 100 100"><g fill="#fff" stroke="#cbd5e1" stroke-width="2.5"><circle cx="36" cy="56" r="14"/><circle cx="52" cy="58" r="13"/><circle cx="44" cy="46" r="13"/></g><circle cx="68" cy="44" r="11" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2.5"/><circle cx="65" cy="42" r="2" fill="#1f2937"/><circle cx="73" cy="42" r="2" fill="#1f2937"/><path d="M38 68v14M50 68v14M60 68v14" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小鸡", svg: '<svg viewBox="0 0 100 100"><circle cx="46" cy="56" r="20" fill="#fde047"/><circle cx="64" cy="40" r="12" fill="#fde047"/><path d="M64 28c1-6 6-8 6-8s3 4 1 8z" fill="#f97316"/><circle cx="68" cy="38" r="2" fill="#1f2937"/><path d="M76 40l8 3-8 3z" fill="#f97316"/><path d="M38 74l-4 10M52 74l4 10" stroke="#f97316" stroke-width="3.5" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小鸟", svg: '<svg viewBox="0 0 100 100"><ellipse cx="44" cy="56" rx="22" ry="15" fill="#38bdf8"/><path d="M26 50c-8-6-16-4-16-4s4 9 13 10z" fill="#0284c7"/><circle cx="64" cy="44" r="11" fill="#0ea5e9"/><circle cx="68" cy="42" r="2" fill="#1f2937"/><path d="M75 46l9 3-9 3z" fill="#f59e0b"/><path d="M40 54c6-4 12-4 16 0-6 4-10 4-16 0z" fill="#7dd3fc"/><path d="M40 71v8M50 71v8" stroke="#f59e0b" stroke-width="2.5"/></svg>' },
+    { cat: "动物", name: "小鱼", svg: '<svg viewBox="0 0 100 100"><path d="M14 50c14-20 38-20 52 0-14 20-38 20-52 0z" fill="#fb923c"/><path d="M66 50l20-14v28z" fill="#f97316"/><circle cx="32" cy="45" r="3.5" fill="#1f2937"/><path d="M44 40c4 6 4 14 0 20" stroke="#fdba74" stroke-width="3" fill="none"/></svg>' },
     { cat: "动物", name: "蝴蝶", svg: '<svg viewBox="0 0 100 100"><ellipse cx="32" cy="38" rx="18" ry="15" fill="#f472b6"/><ellipse cx="68" cy="38" rx="18" ry="15" fill="#f472b6"/><ellipse cx="34" cy="66" rx="14" ry="12" fill="#c084fc"/><ellipse cx="66" cy="66" rx="14" ry="12" fill="#c084fc"/><rect x="47" y="26" width="6" height="52" rx="3" fill="#78350f"/><path d="M50 26l-9-12M50 26l9-12" stroke="#78350f" stroke-width="2.5"/></svg>' },
-    { cat: "动物", name: "蜜蜂", svg: '<svg viewBox="0 0 100 100"><ellipse cx="34" cy="34" rx="12" ry="8" fill="#bfdbfe" transform="rotate(-30 34 34)"/><ellipse cx="66" cy="34" rx="12" ry="8" fill="#bfdbfe" transform="rotate(30 66 34)"/><ellipse cx="50" cy="58" rx="20" ry="16" fill="#fbbf24"/><path d="M42 46v24M50 44v28M58 46v24" stroke="#1f2937" stroke-width="3.5"/></svg>' },
-    { cat: "动物", name: "兔子", svg: '<svg viewBox="0 0 100 100"><ellipse cx="40" cy="26" rx="7" ry="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/><ellipse cx="60" cy="26" rx="7" ry="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/><ellipse cx="50" cy="62" rx="24" ry="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/><circle cx="42" cy="58" r="3.5" fill="#1f2937"/><circle cx="58" cy="58" r="3.5" fill="#1f2937"/><path d="M50 66l-4 4h8z" fill="#f472b6"/></svg>' },
-    { cat: "动物", name: "青蛙", svg: '<svg viewBox="0 0 100 100"><circle cx="34" cy="32" r="12" fill="#4ade80"/><circle cx="66" cy="32" r="12" fill="#4ade80"/><circle cx="50" cy="58" r="26" fill="#4ade80"/><circle cx="34" cy="32" r="6" fill="#fff"/><circle cx="66" cy="32" r="6" fill="#fff"/><circle cx="34" cy="32" r="3" fill="#1f2937"/><circle cx="66" cy="32" r="3" fill="#1f2937"/><path d="M36 64q14 12 28 0" stroke="#15803d" stroke-width="3" fill="none"/></svg>' },
-    { cat: "动物", name: "大象", svg: '<svg viewBox="0 0 100 100"><circle cx="54" cy="52" r="27" fill="#94a3b8"/><path d="M30 58c-12 2-14 20-6 26 5 3 10-2 12-9" fill="#94a3b8"/><circle cx="76" cy="46" r="16" fill="#cbd5e1"/><circle cx="46" cy="46" r="4" fill="#1f2937"/></svg>' },
-    // 家园
+    { cat: "动物", name: "蜜蜂", svg: '<svg viewBox="0 0 100 100"><ellipse cx="34" cy="34" rx="12" ry="8" fill="#bfdbfe" transform="rotate(-30 34 34)"/><ellipse cx="66" cy="34" rx="12" ry="8" fill="#bfdbfe" transform="rotate(30 66 34)"/><ellipse cx="50" cy="58" rx="20" ry="16" fill="#fbbf24"/><path d="M42 46v24M50 44v28M58 46v24" stroke="#1f2937" stroke-width="3.5"/><circle cx="62" cy="50" r="2" fill="#1f2937"/></svg>' },
+    { cat: "动物", name: "兔子", svg: '<svg viewBox="0 0 100 100"><ellipse cx="46" cy="58" rx="22" ry="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2.5"/><ellipse cx="40" cy="34" rx="6" ry="14" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2.5"/><ellipse cx="52" cy="32" rx="6" ry="14" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2.5"/><circle cx="62" cy="48" r="13" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2.5"/><circle cx="66" cy="46" r="2" fill="#1f2937"/><path d="M72 52l-3 3h6z" fill="#f472b6"/><circle cx="26" cy="58" r="5" fill="#fff" stroke="#cbd5e1" stroke-width="2"/><path d="M40 74v10M54 74v10" stroke="#cbd5e1" stroke-width="3.5" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "青蛙", svg: '<svg viewBox="0 0 100 100"><ellipse cx="48" cy="58" rx="26" ry="18" fill="#4ade80"/><circle cx="38" cy="34" r="10" fill="#4ade80"/><circle cx="62" cy="34" r="10" fill="#4ade80"/><circle cx="38" cy="34" r="6" fill="#fff"/><circle cx="62" cy="34" r="6" fill="#fff"/><circle cx="38" cy="34" r="3" fill="#1f2937"/><circle cx="62" cy="34" r="3" fill="#1f2937"/><path d="M40 64q8 8 16 0" stroke="#15803d" stroke-width="2.5" fill="none"/><path d="M26 68l-8 12M70 68l8 12M34 76l-4 10M62 76l4 10" stroke="#22c55e" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "大象", svg: '<svg viewBox="0 0 100 100"><ellipse cx="48" cy="56" rx="28" ry="17" fill="#94a3b8"/><circle cx="74" cy="44" r="14" fill="#94a3b8"/><circle cx="82" cy="42" r="9" fill="#cbd5e1"/><path d="M78 54c8 2 8 14 2 18" stroke="#94a3b8" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="78" cy="42" r="2" fill="#1f2937"/><path d="M30 70v12M44 70v12M58 70v12M70 70v12" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/><path d="M20 50c-6 2-8 8-6 14" stroke="#94a3b8" stroke-width="3" fill="none"/></svg>' },
+    { cat: "动物", name: "小猪", svg: '<svg viewBox="0 0 100 100"><ellipse cx="46" cy="58" rx="26" ry="16" fill="#f9a8d4"/><circle cx="72" cy="48" r="13" fill="#f9a8d4"/><ellipse cx="82" cy="52" rx="7" ry="5" fill="#f472b6"/><circle cx="84" cy="51" r="1.6" fill="#9d174d"/><circle cx="86" cy="51" r="1.6" fill="#9d174d"/><circle cx="72" cy="44" r="2" fill="#1f2937"/><path d="M62 36l6-4 2 7z" fill="#f472b6"/><path d="M20 52c-6-4-8 0-8 0s4 6 8 4" stroke="#f472b6" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M34 70v12M46 70v12M58 70v12" stroke="#f472b6" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小马", svg: '<svg viewBox="0 0 100 100"><ellipse cx="46" cy="54" rx="26" ry="15" fill="#b45309"/><path d="M60 52l10-16" stroke="#b45309" stroke-width="10" stroke-linecap="round"/><circle cx="76" cy="34" r="10" fill="#b45309"/><path d="M70 26l4-6 5 5z" fill="#78350f"/><path d="M68 24c4 2 6 6 6 10" stroke="#78350f" stroke-width="2.5" fill="none"/><circle cx="80" cy="33" r="2" fill="#1f2937"/><path d="M20 46c-6 4-6 12 0 14" stroke="#78350f" stroke-width="4" fill="none"/><path d="M30 66v16M44 66v16M56 66v16M66 66v16" stroke="#92400e" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "小鸭", svg: '<svg viewBox="0 0 100 100"><ellipse cx="46" cy="58" rx="24" ry="14" fill="#fde047"/><circle cx="68" cy="42" r="12" fill="#fde047"/><circle cx="72" cy="40" r="2" fill="#1f2937"/><path d="M78 44l10 4-10 4z" fill="#f97316"/><path d="M40 54c6-4 12-2 14 2-6 4-12 4-14-2z" fill="#facc15"/><path d="M36 70v8M56 70v8" stroke="#f97316" stroke-width="3"/></svg>' },
+    { cat: "动物", name: "熊猫", svg: '<svg viewBox="0 0 100 100"><ellipse cx="46" cy="58" rx="24" ry="16" fill="#fff" stroke="#cbd5e1" stroke-width="2"/><circle cx="66" cy="44" r="13" fill="#fff" stroke="#cbd5e1" stroke-width="2"/><circle cx="61" cy="34" r="6" fill="#1f2937"/><circle cx="74" cy="32" r="6" fill="#1f2937"/><ellipse cx="62" cy="44" rx="4" ry="5" fill="#1f2937" transform="rotate(-20 62 44)"/><ellipse cx="72" cy="43" rx="4" ry="5" fill="#1f2937" transform="rotate(20 72 43)"/><circle cx="62" cy="44" r="1.6" fill="#fff"/><circle cx="72" cy="43" r="1.6" fill="#fff"/><circle cx="67" cy="50" r="1.8" fill="#1f2937"/><path d="M28 48a8 8 0 0 1 0 16M30 72v10M44 72v10M56 72v10" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "狮子", svg: '<svg viewBox="0 0 100 100"><ellipse cx="44" cy="58" rx="24" ry="14" fill="#fbbf24"/><circle cx="68" cy="44" r="18" fill="#b45309"/><circle cx="68" cy="44" r="13" fill="#fbbf24"/><circle cx="64" cy="42" r="2" fill="#1f2937"/><circle cx="73" cy="42" r="2" fill="#1f2937"/><path d="M66 50l-3 3h5z" fill="#92400e"/><path d="M22 52c-6-2-10 2-10 8 4 2 8 0 10-4" stroke="#b45309" stroke-width="4" fill="none"/><path d="M34 70v12M46 70v12M56 70v12" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "长颈鹿", svg: '<svg viewBox="0 0 100 100"><ellipse cx="40" cy="66" rx="22" ry="12" fill="#fbbf24"/><path d="M56 62L64 26" stroke="#fbbf24" stroke-width="10" stroke-linecap="round"/><circle cx="68" cy="24" r="9" fill="#fbbf24"/><path d="M62 18l-2-7M74 18l3-7" stroke="#b45309" stroke-width="2.5"/><circle cx="71" cy="23" r="1.8" fill="#1f2937"/><g fill="#d97706"><circle cx="46" cy="62" r="3"/><circle cx="36" cy="70" r="2.5"/><circle cx="62" cy="44" r="2.5"/><circle cx="64" cy="34" r="2.5"/></g><path d="M28 76v10M42 76v10M52 76v10" stroke="#d97706" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "企鹅", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="24" ry="28" fill="#1f2937"/><ellipse cx="50" cy="62" rx="15" ry="20" fill="#fff"/><circle cx="50" cy="30" r="14" fill="#1f2937"/><circle cx="45" cy="29" r="2" fill="#fff"/><circle cx="55" cy="29" r="2" fill="#fff"/><path d="M50 34l-6 5h12z" fill="#f97316"/><path d="M26 56l-10 6 10 4zM74 56l10 6-10 4z" fill="#1f2937"/><path d="M40 86l-6 6M60 86l6 6" stroke="#f97316" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "乌龟", svg: '<svg viewBox="0 0 100 100"><ellipse cx="48" cy="54" rx="26" ry="16" fill="#16a34a"/><path d="M24 56a24 16 0 0 1 48 0z" fill="#22c55e"/><path d="M36 48l4 8M48 44v12M60 48l-4 8" stroke="#15803d" stroke-width="2"/><circle cx="78" cy="58" r="8" fill="#4ade80"/><circle cx="81" cy="56" r="1.8" fill="#1f2937"/><path d="M28 68l-6 10M42 70v10M58 70v10M70 68l6 10" stroke="#4ade80" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "蜗牛", svg: '<svg viewBox="0 0 100 100"><path d="M18 76h56" stroke="#a3e635" stroke-width="10" stroke-linecap="round"/><path d="M74 76c8 0 8-10 2-12" stroke="#a3e635" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="44" cy="58" r="18" fill="#f59e0b"/><path d="M44 58a10 10 0 1 1 8 10" stroke="#b45309" stroke-width="3" fill="none"/><path d="M70 58l4-10M76 60l6-8" stroke="#a3e635" stroke-width="3" stroke-linecap="round"/><circle cx="74" cy="47" r="2" fill="#1f2937"/><circle cx="82" cy="51" r="2" fill="#1f2937"/></svg>' },
+    { cat: "动物", name: "螃蟹", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="24" ry="16" fill="#ef4444"/><path d="M26 50c-8-6-14-4-14-4s2 8 8 10" fill="#dc2626"/><path d="M74 50c8-6 14-4 14-4s-2 8-8 10" fill="#dc2626"/><circle cx="42" cy="50" r="4" fill="#fff"/><circle cx="58" cy="50" r="4" fill="#fff"/><circle cx="42" cy="50" r="2" fill="#1f2937"/><circle cx="58" cy="50" r="2" fill="#1f2937"/><path d="M36 72l-8 8M50 74v10M64 72l8 8" stroke="#dc2626" stroke-width="4" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "鲸鱼", svg: '<svg viewBox="0 0 100 100"><path d="M14 58c8-16 34-20 52-10 6 4 10 10 10 14 0 6-6 10-16 10H30c-10 0-16-6-16-14z" fill="#3b82f6"/><path d="M76 58c10-4 14-12 14-12s2 10-4 16z" fill="#2563eb"/><circle cx="30" cy="54" r="2.5" fill="#1f2937"/><path d="M40 66c4 4 10 4 14 0" stroke="#bfdbfe" stroke-width="2.5" fill="none"/><path d="M54 38c0-8 6-10 6-10" stroke="#60a5fa" stroke-width="4" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "动物", name: "海豚", svg: '<svg viewBox="0 0 100 100"><path d="M16 62c10-18 34-26 54-18 8 4 12 10 12 14-8 6-24 10-40 10-12 0-20-2-26-6z" fill="#38bdf8"/><path d="M50 44l6-14 8 10z" fill="#0ea5e9"/><path d="M22 62c-6 2-10 8-10 8 6 2 10 0 14-4z" fill="#0ea5e9"/><circle cx="72" cy="54" r="2.5" fill="#1f2937"/></svg>' },
     { cat: "家园", name: "房子", svg: '<svg viewBox="0 0 100 100"><path d="M20 50L50 22l30 28v40H20z" fill="#fcd34d" stroke="#d97706" stroke-width="3"/><path d="M14 52L50 16l36 36" fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round"/><rect x="42" y="62" width="16" height="28" fill="#b45309"/><rect x="26" y="58" width="12" height="12" fill="#93c5fd" stroke="#3b82f6" stroke-width="2"/></svg>' },
     { cat: "家园", name: "栅栏", svg: '<svg viewBox="0 0 100 100"><g stroke="#b45309" stroke-width="9" stroke-linecap="round"><path d="M14 40v52M40 40v52M66 40v52M90 40v52"/></g><g stroke="#d97706" stroke-width="7"><path d="M6 56h88M6 76h88"/></g></svg>' },
     { cat: "家园", name: "小桥", svg: '<svg viewBox="0 0 100 100"><path d="M6 76h88" stroke="#92400e" stroke-width="6"/><path d="M12 76c12-28 64-28 76 0" fill="none" stroke="#b45309" stroke-width="9" stroke-linecap="round"/><path d="M26 62v14M50 56v20M74 62v14" stroke="#92400e" stroke-width="4"/></svg>' },
@@ -1439,19 +1459,26 @@
     { cat: "家园", name: "小山", svg: '<svg viewBox="0 0 100 100"><path d="M8 84L38 28l16 24 12-16 26 48z" fill="#94a3b8"/><path d="M38 28l10 16H28z" fill="#f1f5f9"/></svg>' },
     { cat: "家园", name: "池塘", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="64" rx="38" ry="18" fill="#7dd3fc" stroke="#0ea5e9" stroke-width="3"/><path d="M24 60q8-6 16 0M58 60q8-6 16 0" stroke="#e0f2fe" stroke-width="3" fill="none"/></svg>' },
     { cat: "家园", name: "雪人", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="68" r="20" fill="#fff" stroke="#cbd5e1" stroke-width="3"/><circle cx="50" cy="36" r="14" fill="#fff" stroke="#cbd5e1" stroke-width="3"/><circle cx="45" cy="34" r="2.5" fill="#1f2937"/><circle cx="55" cy="34" r="2.5" fill="#1f2937"/><path d="M50 40l8 3-8 3z" fill="#f97316"/><path d="M33 22h34L50 30z" fill="#ef4444"/></svg>' },
-    // 交通
+    { cat: "家园", name: "路灯", svg: '<svg viewBox="0 0 100 100"><rect x="46" y="52" width="8" height="36" rx="3" fill="#475569"/><path d="M50 24v30" stroke="#475569" stroke-width="6"/><circle cx="50" cy="22" r="10" fill="#fde047" stroke="#f59e0b" stroke-width="3"/><path d="M30 76h40" stroke="#475569" stroke-width="5" stroke-linecap="round"/></svg>' },
+    { cat: "家园", name: "水井", svg: '<svg viewBox="0 0 100 100"><ellipse cx="50" cy="74" rx="24" ry="10" fill="#94a3b8"/><rect x="26" y="48" width="48" height="26" fill="#cbd5e1"/><path d="M26 48q24 8 48 0" fill="#e2e8f0"/><path d="M32 48V30M68 48V30M32 30h36" stroke="#92400e" stroke-width="5" stroke-linecap="round"/><path d="M50 30v8" stroke="#78350f" stroke-width="3"/></svg>' },
     { cat: "交通", name: "小汽车", svg: '<svg viewBox="0 0 100 100"><path d="M26 60l8-16h32l10 16z" fill="#fca5a5"/><path d="M12 60h76v14a6 6 0 0 1-6 6H18a6 6 0 0 1-6-6z" fill="#ef4444"/><circle cx="30" cy="80" r="8" fill="#1f2937"/><circle cx="70" cy="80" r="8" fill="#1f2937"/></svg>' },
     { cat: "交通", name: "公交车", svg: '<svg viewBox="0 0 100 100"><rect x="12" y="22" width="76" height="50" rx="6" fill="#fbbf24" stroke="#f59e0b" stroke-width="3"/><rect x="20" y="30" width="20" height="16" fill="#93c5fd"/><rect x="46" y="30" width="20" height="16" fill="#93c5fd"/><rect x="72" y="30" width="10" height="16" fill="#93c5fd"/><circle cx="30" cy="78" r="8" fill="#1f2937"/><circle cx="70" cy="78" r="8" fill="#1f2937"/></svg>' },
     { cat: "交通", name: "小船", svg: '<svg viewBox="0 0 100 100"><path d="M12 62h76l-12 20H24z" fill="#f97316"/><path d="M50 18l22 42H50z" fill="#fde047" stroke="#f59e0b" stroke-width="2"/><path d="M50 18v44" stroke="#92400e" stroke-width="3"/></svg>' },
     { cat: "交通", name: "飞机", svg: '<svg viewBox="0 0 100 100"><path d="M50 10c6 0 8 10 8 18v12l30 16v10L58 60v12l12 8v6l-20-4-20 4v-6l12-8V60L12 66V56l30-16V28c0-8 2-18 8-18z" fill="#60a5fa" stroke="#3b82f6" stroke-width="2"/></svg>' },
     { cat: "交通", name: "热气球", svg: '<svg viewBox="0 0 100 100"><path d="M50 12c18 0 30 14 30 30 0 14-10 22-18 28H38c-8-6-18-14-18-28 0-16 12-30 30-30z" fill="#f472b6"/><path d="M50 12v58" stroke="#db2777" stroke-width="2"/><path d="M38 70h24l-4 10H42z" fill="#a16207"/></svg>' },
-    // 小物件
+    { cat: "交通", name: "火车", svg: '<svg viewBox="0 0 100 100"><rect x="14" y="38" width="46" height="30" rx="6" fill="#ef4444"/><rect x="62" y="46" width="22" height="22" rx="4" fill="#f97316"/><rect x="22" y="44" width="12" height="10" fill="#93c5fd"/><rect x="40" y="44" width="12" height="10" fill="#93c5fd"/><circle cx="26" cy="74" r="7" fill="#1f2937"/><circle cx="44" cy="74" r="7" fill="#1f2937"/><circle cx="70" cy="74" r="7" fill="#1f2937"/><path d="M14 58h48" stroke="#b91c1c" stroke-width="3"/></svg>' },
+    { cat: "交通", name: "自行车", svg: '<svg viewBox="0 0 100 100"><circle cx="28" cy="66" r="14" fill="none" stroke="#334155" stroke-width="4"/><circle cx="72" cy="66" r="14" fill="none" stroke="#334155" stroke-width="4"/><path d="M28 66l14-20h16l14 20M42 46h16M50 46l-8 20M50 46l10 20" stroke="#0ea5e9" stroke-width="3.5" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "交通", name: "拖拉机", svg: '<svg viewBox="0 0 100 100"><rect x="16" y="50" width="34" height="22" rx="4" fill="#22c55e"/><path d="M50 52l8-12h14v32H50z" fill="#16a34a"/><rect x="58" y="44" width="12" height="10" fill="#93c5fd"/><circle cx="30" cy="76" r="10" fill="#1f2937"/><circle cx="68" cy="74" r="14" fill="#1f2937"/><circle cx="30" cy="76" r="4" fill="#94a3b8"/><circle cx="68" cy="74" r="5" fill="#94a3b8"/></svg>' },
     { cat: "小物件", name: "苹果", svg: '<svg viewBox="0 0 100 100"><path d="M50 30c-16-12-34 0-32 22 2 22 18 34 32 34s30-12 32-34c2-22-16-34-32-22z" fill="#ef4444"/><path d="M50 30c0-10 6-16 14-18" stroke="#65a30d" stroke-width="4" fill="none"/></svg>' },
     { cat: "小物件", name: "冰淇淋", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="34" r="20" fill="#f9a8d4"/><path d="M32 48h36L50 92z" fill="#fcd34d" stroke="#d97706" stroke-width="2"/></svg>' },
     { cat: "小物件", name: "蛋糕", svg: '<svg viewBox="0 0 100 100"><rect x="18" y="48" width="64" height="36" rx="4" fill="#fbcfe8"/><path d="M18 56c10 8 22 8 32 0s22-8 32 0" fill="none" stroke="#f9a8d4" stroke-width="4"/><rect x="34" y="30" width="4" height="18" fill="#facc15"/><rect x="50" y="26" width="4" height="22" fill="#facc15"/><rect x="66" y="30" width="4" height="18" fill="#facc15"/><circle cx="36" cy="28" r="4" fill="#fb7185"/><circle cx="52" cy="24" r="4" fill="#fb7185"/><circle cx="68" cy="28" r="4" fill="#fb7185"/></svg>' },
     { cat: "小物件", name: "气球", svg: '<svg viewBox="0 0 100 100"><path d="M50 72c6 10-6 12 0 22" stroke="#9ca3af" stroke-width="2" fill="none"/><ellipse cx="50" cy="38" rx="22" ry="26" fill="#ef4444"/><path d="M50 64l-6 8h12z" fill="#b91c1c"/></svg>' },
     { cat: "小物件", name: "礼物", svg: '<svg viewBox="0 0 100 100"><rect x="20" y="44" width="60" height="42" rx="4" fill="#60a5fa"/><rect x="44" y="44" width="12" height="42" fill="#fbbf24"/><rect x="20" y="56" width="60" height="10" fill="#fbbf24"/><path d="M50 44c-14-8-24-4-24 0 8 4 16 4 24 0zM50 44c14-8 24-4 24 0-8 4-16 4-24 0z" fill="#f472b6"/></svg>' },
     { cat: "小物件", name: "皇冠", svg: '<svg viewBox="0 0 100 100"><path d="M18 74h64l6-42-20 14-18-26-18 26-20-14z" fill="#fbbf24" stroke="#d97706" stroke-width="3" stroke-linejoin="round"/><circle cx="18" cy="30" r="4" fill="#f472b6"/><circle cx="82" cy="30" r="4" fill="#f472b6"/><circle cx="50" cy="18" r="4" fill="#f472b6"/></svg>' },
+    { cat: "小物件", name: "皮球", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="#f87171"/><path d="M20 50h60M50 20v60" stroke="#fff" stroke-width="3"/><path d="M29 29a30 30 0 0 0 0 42M71 29a30 30 0 0 1 0 42" stroke="#fde047" stroke-width="6" fill="none"/></svg>' },
+    { cat: "小物件", name: "风筝", svg: '<svg viewBox="0 0 100 100"><path d="M50 12l24 28-24 28-24-28z" fill="#38bdf8" stroke="#0284c7" stroke-width="2"/><path d="M50 12v56M26 40h48" stroke="#0284c7" stroke-width="2"/><path d="M50 68c6 8-6 10 0 18" stroke="#94a3b8" stroke-width="2" fill="none"/><path d="M50 86l-6 6 8 2z" fill="#f472b6"/></svg>' },
+    { cat: "小物件", name: "糖果", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="18" fill="#f472b6"/><path d="M32 42l-14-10v36l14-10zM68 42l14-10v36l-14-10z" fill="#fb7185"/><path d="M42 42l16 16M58 42L42 58" stroke="#fff" stroke-width="3"/></svg>' },
+    { cat: "小物件", name: "星星棒", svg: '<svg viewBox="0 0 100 100"><rect x="46" y="42" width="8" height="50" rx="4" fill="#f59e0b" transform="rotate(12 50 67)"/><path d="M52 10l7 17 18 2-14 12 4 18-15-9-15 9 4-18-14-12 18-2z" fill="#facc15" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round"/></svg>' },
   ];
 
   var stickerCache = {};          // svg 字符串 → 已加载的 Image
@@ -1540,9 +1567,13 @@
     return drawState.size === 14 ? 180 : (drawState.size === 8 ? 130 : 90);
   }
 
-  function placeStickerAt(svg, x, y, size, done) {
+  function placeStickerAt(svg, x, y, size, rot, done) {
     stickerImg(svg, function (img) {
-      bctx.drawImage(img, x - size / 2, y - size / 2, size, size);
+      bctx.save();
+      bctx.translate(x, y);
+      if (rot) bctx.rotate(rot * Math.PI / 180);
+      bctx.drawImage(img, -size / 2, -size / 2, size, size);
+      bctx.restore();
       if (done) done();
     });
   }
@@ -1563,6 +1594,8 @@
     pendingEl.style.top = (pendingState.y - s / 2) + "px";
     pendingEl.style.width = s + "px";
     pendingEl.style.height = s + "px";
+    var img = pendingEl.querySelector("img");
+    if (img) img.style.transform = "rotate(" + (pendingState.rot || 0) + "deg)";
   }
 
   function clampPending() {
@@ -1578,6 +1611,7 @@
     el.className = "pending-sticker";
     el.innerHTML =
       '<img alt="">' +
+      '<div class="pending-rotate" title="拖动旋转">↻</div>' +
       '<div class="pending-resize" title="拖动调整大小"></div>' +
       '<div class="pending-actions">' +
       '<button type="button" id="board-pending-ok" title="放到画布上">✓</button>' +
@@ -1598,7 +1632,7 @@
 
     // 拖动位置
     el.addEventListener("pointerdown", function (e) {
-      if (e.target.closest(".pending-resize") || e.target.closest("button")) return;
+      if (e.target.closest(".pending-resize") || e.target.closest(".pending-rotate") || e.target.closest("button")) return;
       e.preventDefault();
       e.stopPropagation();
       var sx = e.clientX, sy = e.clientY;
@@ -1649,6 +1683,33 @@
       rz.addEventListener("pointercancel", onUp);
     });
 
+    // 拖左上角圆点旋转（15° 吸附，方便孩子摆正）
+    var rt = el.querySelector(".pending-rotate");
+    rt.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var r = el.getBoundingClientRect();
+      var cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      var a0 = Math.atan2(e.clientY - cy, e.clientX - cx);
+      var base = pendingState.rot || 0;
+      rt.setPointerCapture(e.pointerId);
+      function onMove(ev) {
+        if (!pendingState) return;
+        var a = Math.atan2(ev.clientY - cy, ev.clientX - cx);
+        var deg = base + (a - a0) * 180 / Math.PI;
+        pendingState.rot = ((Math.round(deg / 15) * 15) % 360 + 360) % 360;
+        layoutPending();
+      }
+      function onUp() {
+        rt.removeEventListener("pointermove", onMove);
+        rt.removeEventListener("pointerup", onUp);
+        rt.removeEventListener("pointercancel", onUp);
+      }
+      rt.addEventListener("pointermove", onMove);
+      rt.addEventListener("pointerup", onUp);
+      rt.addEventListener("pointercancel", onUp);
+    });
+
     return el;
   }
 
@@ -1662,7 +1723,8 @@
     pendingState = {
       svg: s.svg, name: s.name,
       x: W / 2, y: H / 2,
-      size: Math.min(stickerSize() * k, Math.min(W, H) * 0.8)
+      size: Math.min(stickerSize() * k, Math.min(W, H) * 0.8),
+      rot: 0
     };
     pendingEl.querySelector("img").src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
       s.svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" ')
@@ -1681,7 +1743,7 @@
     pendingState = null;
     pendingEl.style.display = "none";
     recordBoardAction("sticker", null);
-    placeStickerAt(st.svg, st.x * k, st.y * k, st.size * k, done);
+    placeStickerAt(st.svg, st.x * k, st.y * k, st.size * k, st.rot, done);
   }
 
   function discardPendingSticker() {
@@ -1698,9 +1760,8 @@
     Array.prototype.forEach.call($("board-tools").querySelectorAll(".tool-btn"), function (x) { x.classList.remove("active"); });
     boardEmojiBar.classList.remove("show");
     boardCanvas.style.cursor = "copy";
-    $("board-template-panel").classList.remove("show");
     showPendingSticker(s);
-    showBoardToast("🧩 " + s.name + " · 拖动调整位置，拉右下角改大小");
+    showBoardToast("🧩 " + s.name + " · 拖动摆位置，拉 ↘ 改大小，拖 ↻ 调方向");
   }
 
   function renderStickerGrid() {
@@ -1725,10 +1786,12 @@
   }
 
   $("board-template-btn").addEventListener("click", function () {
-    $("board-template-panel").classList.toggle("show");
+    var opened = $("board-template-panel").classList.toggle("show");
+    $("board").classList.toggle("panel-open", opened);
   });
   $("template-hide").addEventListener("click", function () {
     $("board-template-panel").classList.remove("show");
+    $("board").classList.remove("panel-open");
     commitPendingSticker();
     currentSticker = null;
     drawState.tool = "pen";
