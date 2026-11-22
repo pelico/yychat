@@ -533,7 +533,7 @@
       <button class="board-btn ghost active" id="board-smooth-btn" title="平滑线条：已开启（点击关闭）" aria-pressed="true">〰 平滑</button>
       <span class="row-divider"></span>
       <button class="board-btn ghost" id="board-template-btn" title="素材库：选素材点到画布上，可重复放置">🧩 素材</button>
-      <button class="board-btn ghost" id="board-theme-btn" title="背景主题：纯色纸/场景（空房间、山野、海滩、卧室）">🎨 主题</button>
+      <button class="board-btn ghost" id="board-theme-btn" title="背景主题：纯色纸 + 12 种场景（房间/自然/城市/太空/教室/厨房等）">🎨 主题</button>
       <button class="board-btn ghost" id="board-palette-btn" title="预设配色方案">🎌 配色</button>
       <button class="board-btn ghost" id="board-save" title="保存为 PNG 图片">💾 保存</button>
       <button class="board-btn ghost" id="board-speak" title="朗读一句鼓励">🔊 鼓励</button>
@@ -565,6 +565,14 @@
     <button class="theme-btn" data-theme="country">⛰️ 山野</button>
     <button class="theme-btn" data-theme="beach">🏖️ 海滩</button>
     <button class="theme-btn" data-theme="bedroom">🛏️ 卧室</button>
+    <button class="theme-btn" data-theme="forest">🌳 森林</button>
+    <button class="theme-btn" data-theme="city">🏙️ 城市</button>
+    <button class="theme-btn" data-theme="farm">🚜 农场</button>
+    <button class="theme-btn" data-theme="sea">🐠 海底</button>
+    <button class="theme-btn" data-theme="space">🚀 太空</button>
+    <button class="theme-btn" data-theme="snow">❄️ 雪地</button>
+    <button class="theme-btn" data-theme="classroom">🏫 教室</button>
+    <button class="theme-btn" data-theme="kitchen">🍳 厨房</button>
   </div>
   <!-- 预设配色面板 -->
   <div id="board-palette-panel" class="board-popup-panel">
@@ -2136,6 +2144,46 @@
     bctx.closePath();
     bctx.fill();
   }
+  function sceneRoundTree(x, y, s) {
+    bctx.fillStyle = "#8b5a2b";
+    bctx.fillRect(x - s * 0.05, y - s * 0.42, s * 0.1, s * 0.42);
+    bctx.fillStyle = "#4f9e58";
+    bctx.beginPath(); bctx.arc(x, y - s * 0.56, s * 0.27, 0, Math.PI * 2); bctx.fill();
+    bctx.beginPath(); bctx.arc(x - s * 0.17, y - s * 0.42, s * 0.2, 0, Math.PI * 2); bctx.fill();
+    bctx.beginPath(); bctx.arc(x + s * 0.17, y - s * 0.42, s * 0.2, 0, Math.PI * 2); bctx.fill();
+    bctx.fillStyle = "#65b46c";
+    bctx.beginPath(); bctx.arc(x - s * 0.06, y - s * 0.64, s * 0.12, 0, Math.PI * 2); bctx.fill();
+  }
+  function sceneBuilding(x, y, w, h, color) {
+    bctx.fillStyle = color; bctx.fillRect(x, y, w, h);
+    bctx.fillStyle = "rgba(255,255,255,.7)";
+    for (var yy = y + 16; yy < y + h - 22; yy += 30) {
+      for (var xx = x + 12; xx < x + w - 16; xx += 24) {
+        bctx.fillRect(xx, yy, 12, 16);
+      }
+    }
+  }
+  function scenePine(x, y, s, snow) {
+    bctx.fillStyle = "#8b5a2b";
+    bctx.fillRect(x - s * 0.045, y - s * 0.14, s * 0.09, s * 0.24);
+    for (var i = 0; i < 3; i++) {
+      var w = s * (0.68 - i * 0.16), yy = y - i * s * 0.17;
+      bctx.fillStyle = "#2f7d4f";
+      bctx.beginPath();
+      bctx.moveTo(x, yy - s * 0.6);
+      bctx.lineTo(x - w / 2, yy);
+      bctx.lineTo(x + w / 2, yy);
+      bctx.closePath(); bctx.fill();
+      if (snow) {
+        bctx.strokeStyle = "#f8fbff"; bctx.lineWidth = 4; bctx.lineCap = "round";
+        bctx.beginPath();
+        bctx.moveTo(x - w * 0.42, yy - s * 0.055);
+        bctx.lineTo(x, yy - s * 0.56);
+        bctx.lineTo(x + w * 0.42, yy - s * 0.055);
+        bctx.stroke();
+      }
+    }
+  }
 
   var SCENES = {
     // 空房间：墙、地板、窗、门、地毯，留白给孩子画家具
@@ -2310,6 +2358,322 @@
       bctx.strokeStyle = "#c4b5fd"; bctx.lineWidth = 6; bctx.strokeRect(300, 112, 118, 88);
       bctx.fillStyle = "#a7f3d0"; bctx.beginPath(); bctx.arc(359, 172, 26, Math.PI, 0); bctx.closePath(); bctx.fill();
       bctx.fillStyle = "#fbbf24"; bctx.beginPath(); bctx.arc(340, 138, 9, 0, Math.PI * 2); bctx.fill();
+    },
+
+    // 森林：阳光、草地、小路、两侧大树、蘑菇
+    forest: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var sky = bctx.createLinearGradient(0, 0, 0, H * 0.62);
+      sky.addColorStop(0, "#d9f0ff"); sky.addColorStop(1, "#eefbf1");
+      bctx.fillStyle = sky; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "rgba(253,224,71,.45)"; bctx.beginPath(); bctx.arc(730, 82, 62, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(730, 82, 38, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#b7ddc1";
+      for (var i = 0; i < 10; i++) { bctx.beginPath(); bctx.arc(40 + i * 96, 380 + (i % 3) * 18, 48, 0, Math.PI * 2); bctx.fill(); }
+      bctx.fillStyle = "#a9dc8b";
+      bctx.beginPath(); bctx.moveTo(0, 418);
+      bctx.bezierCurveTo(220, 380, 420, 448, 620, 408);
+      bctx.bezierCurveTo(750, 382, 850, 428, W, 404);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#8fcc72";
+      bctx.beginPath(); bctx.moveTo(0, 508);
+      bctx.bezierCurveTo(240, 478, 440, 540, 660, 500);
+      bctx.bezierCurveTo(780, 478, 850, 512, W, 496);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#eadcb7";
+      bctx.beginPath(); bctx.moveTo(400, H);
+      bctx.bezierCurveTo(430, 540, 462, 480, 474, 430);
+      bctx.lineTo(516, 430);
+      bctx.bezierCurveTo(500, 486, 520, 545, 566, H);
+      bctx.closePath(); bctx.fill();
+      sceneRoundTree(104, 474, 168);
+      sceneRoundTree(792, 462, 186);
+      sceneRoundTree(232, 424, 92);
+      sceneRoundTree(676, 416, 84);
+      // 蘑菇
+      bctx.fillStyle = "#ef4444"; bctx.beginPath(); bctx.arc(326, 522, 14, Math.PI, 0); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#fff";
+      bctx.beginPath(); bctx.arc(321, 513, 3.5, 0, Math.PI * 2); bctx.arc(332, 511, 3, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#fef3c7"; bctx.fillRect(323, 522, 6, 12);
+    },
+
+    // 城市：楼群、人行道、马路、斑马线
+    city: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var sky = bctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#cfe8ff"); sky.addColorStop(0.7, "#f2faff"); sky.addColorStop(1, "#e8eef5");
+      bctx.fillStyle = sky; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "rgba(253,224,71,.4)"; bctx.beginPath(); bctx.arc(760, 80, 56, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(760, 80, 34, 0, Math.PI * 2); bctx.fill();
+      sceneCloud(210, 80, 22); sceneCloud(520, 130, 15);
+      sceneBuilding(40, 250, 90, 170, "#c7d9ea");
+      sceneBuilding(150, 200, 70, 220, "#b9d0e4");
+      sceneBuilding(240, 280, 80, 140, "#cdddec");
+      sceneBuilding(620, 230, 90, 190, "#c7d9ea");
+      sceneBuilding(730, 190, 80, 230, "#b9d0e4");
+      sceneBuilding(830, 270, 70, 150, "#cdddec");
+      sceneBuilding(0, 170, 110, 250, "#f1c27d");
+      sceneBuilding(790, 160, 110, 260, "#f1c27d");
+      bctx.fillStyle = "#d1d5db"; bctx.fillRect(0, 452, W, 40);
+      bctx.strokeStyle = "#b6bcc4"; bctx.lineWidth = 2;
+      for (var x = 0; x < W; x += 60) { bctx.beginPath(); bctx.moveTo(x, 452); bctx.lineTo(x, 492); bctx.stroke(); }
+      bctx.fillStyle = "#4b5563"; bctx.fillRect(0, 492, W, H - 492);
+      bctx.fillStyle = "#fde047";
+      for (var x2 = 30; x2 < W; x2 += 90) bctx.fillRect(x2, 540, 46, 8);
+      bctx.fillStyle = "#fff";
+      for (var i = 0; i < 6; i++) bctx.fillRect(80 + i * 26, 496, 16, 44);
+    },
+
+    // 农场：谷仓、筒仓、栅栏、田地、干草卷
+    farm: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var sky = bctx.createLinearGradient(0, 0, 0, H * 0.7);
+      sky.addColorStop(0, "#bfe9ff"); sky.addColorStop(1, "#f7fff0");
+      bctx.fillStyle = sky; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "rgba(253,224,71,.45)"; bctx.beginPath(); bctx.arc(716, 84, 60, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(716, 84, 38, 0, Math.PI * 2); bctx.fill();
+      sceneCloud(240, 100, 24); sceneCloud(560, 150, 16);
+      bctx.fillStyle = "#b7e39a";
+      bctx.beginPath(); bctx.moveTo(0, 360);
+      bctx.bezierCurveTo(220, 316, 420, 388, 620, 344);
+      bctx.bezierCurveTo(760, 314, 850, 356, W, 336);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#96d878";
+      bctx.beginPath(); bctx.moveTo(0, 446);
+      bctx.bezierCurveTo(240, 412, 440, 480, 660, 440);
+      bctx.bezierCurveTo(780, 418, 850, 452, W, 436);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      // 谷仓
+      bctx.fillStyle = "#d94848"; bctx.fillRect(60, 318, 190, 152);
+      bctx.fillStyle = "#9f2f2f";
+      bctx.beginPath(); bctx.moveTo(38, 322); bctx.lineTo(155, 238); bctx.lineTo(272, 322); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#fff"; bctx.fillRect(122, 386, 66, 84);
+      bctx.strokeStyle = "#d94848"; bctx.lineWidth = 4;
+      bctx.beginPath(); bctx.moveTo(122, 386); bctx.lineTo(188, 470); bctx.moveTo(188, 386); bctx.lineTo(122, 470); bctx.stroke();
+      bctx.fillStyle = "#fde68a"; bctx.fillRect(138, 300, 34, 26);
+      // 筒仓
+      bctx.fillStyle = "#cbd5e1"; bctx.fillRect(266, 286, 62, 184);
+      bctx.fillStyle = "#94a3b8"; bctx.beginPath(); bctx.arc(297, 286, 31, Math.PI, 0); bctx.closePath(); bctx.fill();
+      bctx.strokeStyle = "#b6c2cf"; bctx.lineWidth = 2;
+      for (var sy = 316; sy < 460; sy += 26) { bctx.beginPath(); bctx.moveTo(266, sy); bctx.lineTo(328, sy); bctx.stroke(); }
+      // 栅栏
+      bctx.strokeStyle = "#d6a97a"; bctx.lineWidth = 6; bctx.lineCap = "round";
+      bctx.beginPath(); bctx.moveTo(340, 432); bctx.lineTo(780, 432); bctx.moveTo(340, 456); bctx.lineTo(780, 456); bctx.stroke();
+      for (var fx = 348; fx <= 780; fx += 62) { bctx.beginPath(); bctx.moveTo(fx, 418); bctx.lineTo(fx, 470); bctx.stroke(); }
+      // 干草卷
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(806, 474, 30, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#eab308"; bctx.lineWidth = 3;
+      bctx.beginPath(); bctx.arc(806, 474, 18, 0, Math.PI * 1.7); bctx.stroke();
+      // 田地
+      bctx.fillStyle = "#8b5a2b"; bctx.fillRect(0, 520, W, H - 520);
+      bctx.strokeStyle = "#7aa84f"; bctx.lineWidth = 5;
+      for (var ry = 536; ry < H; ry += 18) { bctx.beginPath(); bctx.moveTo(30, ry); bctx.lineTo(W - 30, ry); bctx.stroke(); }
+    },
+
+    // 海底：蓝色海水、光柱、沙地、海草、珊瑚、泡泡
+    sea: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var g = bctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#7dd3fc"); g.addColorStop(0.6, "#0ea5e9"); g.addColorStop(1, "#0369a1");
+      bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "rgba(255,255,255,.13)";
+      [[100, 70], [400, 40], [690, 60]].forEach(function (b) {
+        bctx.beginPath();
+        bctx.moveTo(b[0], 0); bctx.lineTo(b[0] + b[1], 0);
+        bctx.lineTo(b[0] + b[1] + 130, H); bctx.lineTo(b[0] + 50, H);
+        bctx.closePath(); bctx.fill();
+      });
+      bctx.fillStyle = "#fde5b0";
+      bctx.beginPath(); bctx.moveTo(0, 524);
+      bctx.bezierCurveTo(200, 506, 380, 540, 560, 516);
+      bctx.bezierCurveTo(720, 496, 820, 532, W, 512);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#e6c98c";
+      bctx.beginPath(); bctx.moveTo(0, 566);
+      bctx.bezierCurveTo(220, 548, 440, 584, 660, 560);
+      bctx.bezierCurveTo(780, 548, 850, 574, W, 562);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      // 海草
+      [84, 112, 742, 778].forEach(function (x, i) {
+        bctx.strokeStyle = i % 2 ? "#4ade80" : "#22c55e";
+        bctx.lineWidth = 8; bctx.lineCap = "round";
+        bctx.beginPath(); bctx.moveTo(x, 540);
+        bctx.bezierCurveTo(x - 26, 500, x + 26, 470, x - 8, 418 - i * 8);
+        bctx.stroke();
+      });
+      // 珊瑚
+      bctx.strokeStyle = "#fb7185"; bctx.lineWidth = 7; bctx.lineCap = "round";
+      bctx.beginPath(); bctx.moveTo(640, 552); bctx.lineTo(640, 508); bctx.moveTo(640, 528); bctx.lineTo(622, 508); bctx.moveTo(640, 522); bctx.lineTo(660, 500); bctx.stroke();
+      bctx.strokeStyle = "#fda4af"; bctx.lineWidth = 5;
+      bctx.beginPath(); bctx.moveTo(650, 552); bctx.lineTo(650, 522); bctx.moveTo(650, 536); bctx.lineTo(666, 520); bctx.stroke();
+      // 石头
+      bctx.fillStyle = "#64748b";
+      bctx.beginPath(); bctx.ellipse(330, 552, 46, 24, 0, 0, Math.PI * 2); bctx.fill();
+      bctx.beginPath(); bctx.ellipse(548, 560, 34, 18, 0, 0, Math.PI * 2); bctx.fill();
+      // 泡泡
+      bctx.strokeStyle = "rgba(255,255,255,.72)"; bctx.lineWidth = 2;
+      [[220, 180, 8], [248, 140, 5], [420, 230, 9], [444, 190, 5], [700, 200, 7], [560, 120, 6]].forEach(function (p) {
+        bctx.beginPath(); bctx.arc(p[0], p[1], p[2], 0, Math.PI * 2); bctx.stroke();
+      });
+    },
+
+    // 太空：深蓝星空、行星、月亮、星云
+    space: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var g = bctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, "#0b1026"); g.addColorStop(0.55, "#1e1b4b"); g.addColorStop(1, "#312e81");
+      bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
+      for (var i = 0; i < 90; i++) {
+        var sx = (i * 137) % W, sy = (i * 89) % H, sr = i % 3 === 0 ? 2 : 1.2;
+        bctx.fillStyle = i % 4 === 0 ? "#fde68a" : "#ffffff";
+        bctx.beginPath(); bctx.arc(sx, sy, sr, 0, Math.PI * 2); bctx.fill();
+      }
+      // 星云
+      bctx.fillStyle = "rgba(236,72,153,.13)";
+      bctx.beginPath(); bctx.ellipse(310, 480, 190, 110, -0.3, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "rgba(59,130,246,.15)";
+      bctx.beginPath(); bctx.ellipse(620, 500, 230, 120, 0.2, 0, Math.PI * 2); bctx.fill();
+      // 行星 + 光环
+      bctx.strokeStyle = "rgba(196,181,253,.75)"; bctx.lineWidth = 9;
+      bctx.beginPath(); bctx.ellipse(724, 112, 112, 28, -0.35, 0, Math.PI * 2); bctx.stroke();
+      bctx.fillStyle = "#a78bfa"; bctx.beginPath(); bctx.arc(724, 112, 58, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#c4b5fd"; bctx.beginPath(); bctx.arc(708, 96, 20, 0, Math.PI * 2); bctx.fill();
+      // 小月亮
+      bctx.fillStyle = "#e2e8f0"; bctx.beginPath(); bctx.arc(142, 92, 30, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#cbd5e1";
+      bctx.beginPath(); bctx.arc(132, 84, 7, 0, Math.PI * 2); bctx.arc(152, 100, 5, 0, Math.PI * 2); bctx.arc(142, 108, 4, 0, Math.PI * 2); bctx.fill();
+    },
+
+    // 雪地：雪山、雪地、雪松、小木屋、雪花
+    snow: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var g = bctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#dbeafe"); g.addColorStop(1, "#f8fbff");
+      bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "rgba(253,224,71,.4)"; bctx.beginPath(); bctx.arc(742, 92, 58, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#fef3c7"; bctx.beginPath(); bctx.arc(742, 92, 36, 0, Math.PI * 2); bctx.fill();
+      // 远山
+      bctx.fillStyle = "#cfe3f5";
+      bctx.beginPath(); bctx.moveTo(0, 380); bctx.lineTo(180, 206); bctx.lineTo(360, 380); bctx.closePath(); bctx.fill();
+      bctx.beginPath(); bctx.moveTo(240, 380); bctx.lineTo(450, 166); bctx.lineTo(670, 380); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#f8fbff";
+      bctx.beginPath(); bctx.moveTo(450, 166); bctx.lineTo(410, 214); bctx.lineTo(438, 208); bctx.lineTo(466, 222); bctx.lineTo(486, 208); bctx.closePath(); bctx.fill();
+      // 雪地
+      bctx.fillStyle = "#f8fbff";
+      bctx.beginPath(); bctx.moveTo(0, 400);
+      bctx.bezierCurveTo(220, 372, 420, 428, 620, 392);
+      bctx.bezierCurveTo(750, 370, 850, 408, W, 390);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#e3eefb";
+      bctx.beginPath(); bctx.moveTo(0, 498);
+      bctx.bezierCurveTo(240, 470, 440, 532, 660, 492);
+      bctx.bezierCurveTo(780, 470, 850, 504, W, 490);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      // 小木屋
+      bctx.fillStyle = "#b45309"; bctx.fillRect(56, 354, 172, 116);
+      bctx.fillStyle = "#7c2d12";
+      bctx.beginPath(); bctx.moveTo(38, 358); bctx.lineTo(142, 280); bctx.lineTo(246, 358); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#f8fbff";
+      bctx.beginPath(); bctx.moveTo(38, 354); bctx.lineTo(142, 276); bctx.lineTo(246, 354); bctx.lineTo(232, 360); bctx.lineTo(142, 288); bctx.lineTo(52, 360); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#fef3c7"; bctx.fillRect(92, 388, 34, 30);
+      bctx.fillStyle = "#92400e"; bctx.fillRect(148, 400, 42, 70);
+      bctx.fillStyle = "#facc15"; bctx.beginPath(); bctx.arc(182, 436, 3.5, 0, Math.PI * 2); bctx.fill();
+      // 雪松
+      scenePine(768, 500, 180, true);
+      scenePine(668, 432, 88, true);
+      // 雪花
+      bctx.fillStyle = "#c7ddf5";
+      for (var i = 0; i < 26; i++) {
+        var x = (i * 173) % W, y = (i * 97) % 380;
+        bctx.beginPath(); bctx.arc(x, y, i % 4 === 0 ? 3 : 2, 0, Math.PI * 2); bctx.fill();
+      }
+    },
+
+    // 教室：黑板、讲台、时钟、窗户、书架
+    classroom: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      bctx.fillStyle = "#fff8e7"; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "#dcb98a"; bctx.fillRect(0, H * 0.72, W, H * 0.28);
+      bctx.fillStyle = "#fdf6ea"; bctx.fillRect(0, H * 0.72 - 12, W, 12);
+      // 黑板
+      bctx.fillStyle = "#b45309"; bctx.fillRect(48, 104, 344, 222);
+      bctx.fillStyle = "#14532d"; bctx.fillRect(64, 120, 312, 190);
+      bctx.fillStyle = "#92400e"; bctx.fillRect(48, 326, 344, 14);
+      bctx.strokeStyle = "rgba(255,255,255,.5)"; bctx.lineWidth = 3; bctx.lineCap = "round";
+      bctx.beginPath(); bctx.moveTo(96, 176); bctx.lineTo(150, 256); bctx.moveTo(150, 176); bctx.lineTo(96, 256); bctx.stroke();
+      bctx.beginPath(); bctx.arc(214, 216, 38, 0, Math.PI * 2); bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(290, 256); bctx.lineTo(312, 176); bctx.lineTo(334, 256); bctx.stroke();
+      // 时钟
+      bctx.fillStyle = "#fff"; bctx.beginPath(); bctx.arc(490, 108, 32, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#6b7280"; bctx.lineWidth = 4; bctx.stroke();
+      bctx.lineWidth = 3;
+      bctx.beginPath(); bctx.moveTo(490, 108); bctx.lineTo(490, 88); bctx.moveTo(490, 108); bctx.lineTo(506, 116); bctx.stroke();
+      // 窗户
+      bctx.fillStyle = "#fff"; sceneRR(632, 92, 208, 174, 10); bctx.fill();
+      bctx.fillStyle = "#bfe3ff"; sceneRR(644, 104, 184, 150, 6); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(792, 142, 18, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#93c5fd"; bctx.lineWidth = 5;
+      bctx.beginPath(); bctx.moveTo(736, 104); bctx.lineTo(736, 254); bctx.moveTo(644, 180); bctx.lineTo(828, 180); bctx.stroke();
+      // 书架
+      bctx.fillStyle = "#b45309"; bctx.fillRect(618, 318, 232, 118);
+      bctx.fillStyle = "#fdf6ea"; bctx.fillRect(628, 328, 212, 42);
+      bctx.fillRect(628, 382, 212, 44);
+      var books = ["#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899"];
+      for (var i = 0; i < 9; i++) {
+        bctx.fillStyle = books[i % books.length];
+        bctx.fillRect(638 + i * 22, 334 + (i % 3) * 2, 14, 34);
+        bctx.fillRect(638 + i * 22, 390 + (i % 4), 14, 32);
+      }
+      // 讲台
+      bctx.fillStyle = "#d6a97a"; sceneRR(72, 430, 210, 74, 6); bctx.fill();
+      bctx.strokeStyle = "#b98a5e"; bctx.lineWidth = 3; bctx.beginPath(); bctx.moveTo(82, 462); bctx.lineTo(272, 462); bctx.stroke();
+    },
+
+    // 厨房：瓷砖墙、吊柜、台面、水槽、灶台、冰箱
+    kitchen: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      bctx.fillStyle = "#e0f2fe"; bctx.fillRect(0, 0, W, H);
+      bctx.strokeStyle = "#bae6fd"; bctx.lineWidth = 2;
+      for (var y = 0; y < 400; y += 52) { bctx.beginPath(); bctx.moveTo(0, y); bctx.lineTo(W, y); bctx.stroke(); }
+      for (var x = 0; x < W; x += 62) { bctx.beginPath(); bctx.moveTo(x, 0); bctx.lineTo(x, 400); bctx.stroke(); }
+      // 窗户
+      bctx.fillStyle = "#fff"; sceneRR(348, 62, 204, 148, 10); bctx.fill();
+      bctx.fillStyle = "#bfe3ff"; sceneRR(360, 74, 180, 124, 6); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(508, 108, 18, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#93c5fd"; bctx.lineWidth = 5;
+      bctx.beginPath(); bctx.moveTo(450, 74); bctx.lineTo(450, 198); bctx.moveTo(360, 136); bctx.lineTo(540, 136); bctx.stroke();
+      // 吊柜
+      bctx.fillStyle = "#f8fafc"; sceneRR(24, 58, 260, 126, 8); bctx.fill();
+      sceneRR(616, 58, 260, 126, 8); bctx.fill();
+      bctx.strokeStyle = "#cbd5e1"; bctx.lineWidth = 3; bctx.stroke();
+      bctx.fillStyle = "#94a3b8"; bctx.fillRect(146, 160, 46, 8); bctx.fillRect(708, 160, 46, 8);
+      // 台面
+      bctx.fillStyle = "#d6a97a"; bctx.fillRect(0, 386, W, 28);
+      bctx.fillStyle = "#f8fafc"; bctx.fillRect(0, 414, W, 118);
+      bctx.strokeStyle = "#e2e8f0"; bctx.lineWidth = 3;
+      for (var cx = 0; cx < W; cx += 150) { bctx.beginPath(); bctx.moveTo(cx, 414); bctx.lineTo(cx, 532); bctx.stroke(); }
+      bctx.fillStyle = "#94a3b8";
+      for (var hx = 62; hx < W; hx += 150) bctx.fillRect(hx, 466, 30, 7);
+      // 水槽
+      bctx.fillStyle = "#94a3b8"; sceneRR(108, 394, 136, 34, 8); bctx.fill();
+      bctx.fillStyle = "#64748b"; sceneRR(118, 400, 116, 22, 6); bctx.fill();
+      bctx.strokeStyle = "#475569"; bctx.lineWidth = 6; bctx.lineCap = "round";
+      bctx.beginPath(); bctx.moveTo(176, 394); bctx.lineTo(176, 366); bctx.quadraticCurveTo(176, 352, 194, 352); bctx.stroke();
+      // 灶台
+      bctx.fillStyle = "#334155"; sceneRR(596, 392, 190, 38, 8); bctx.fill();
+      bctx.fillStyle = "#1f2937";
+      bctx.beginPath(); bctx.arc(638, 410, 12, 0, Math.PI * 2); bctx.arc(706, 410, 12, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#94a3b8"; bctx.lineWidth = 2;
+      bctx.beginPath(); bctx.arc(638, 410, 7, 0, Math.PI * 2); bctx.arc(706, 410, 7, 0, Math.PI * 2); bctx.stroke();
+      // 冰箱
+      bctx.fillStyle = "#e2e8f0"; sceneRR(822, 238, 78, 292, 6); bctx.fill();
+      bctx.strokeStyle = "#cbd5e1"; bctx.lineWidth = 2; bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(822, 366); bctx.lineTo(900, 366); bctx.stroke();
+      bctx.fillStyle = "#94a3b8"; bctx.fillRect(884, 286, 6, 44); bctx.fillRect(884, 390, 6, 44);
+      // 地砖
+      bctx.fillStyle = "#e5e7eb"; bctx.fillRect(0, 532, W, H - 532);
+      bctx.strokeStyle = "#cbd5e1"; bctx.lineWidth = 2;
+      for (var fx = 0; fx < W; fx += 80) { bctx.beginPath(); bctx.moveTo(fx, 532); bctx.lineTo(fx, H); bctx.stroke(); }
     }
   };
 
@@ -2324,7 +2688,15 @@
     room:      { fill: "#fdf6ea", canvasClass: "", grid: false, scene: "room" },
     country:   { fill: "#effaff", canvasClass: "", grid: false, scene: "country" },
     beach:     { fill: "#fde5b0", canvasClass: "", grid: false, scene: "beach" },
-    bedroom:   { fill: "#f3e8ff", canvasClass: "", grid: false, scene: "bedroom" }
+    bedroom:   { fill: "#f3e8ff", canvasClass: "", grid: false, scene: "bedroom" },
+    forest:    { fill: "#eefbf1", canvasClass: "", grid: false, scene: "forest" },
+    city:      { fill: "#f2faff", canvasClass: "", grid: false, scene: "city" },
+    farm:      { fill: "#f7fff0", canvasClass: "", grid: false, scene: "farm" },
+    sea:       { fill: "#0369a1", canvasClass: "", grid: false, scene: "sea" },
+    space:     { fill: "#0b1026", canvasClass: "", grid: false, scene: "space", dark: true },
+    snow:      { fill: "#f8fbff", canvasClass: "", grid: false, scene: "snow" },
+    classroom: { fill: "#fff8e7", canvasClass: "", grid: false, scene: "classroom" },
+    kitchen:   { fill: "#e0f2fe", canvasClass: "", grid: false, scene: "kitchen" }
   };
 
   function getCurrentTheme() { return currentTheme; }
@@ -2381,10 +2753,11 @@
     pushHistory();
     currentTheme = theme;
     applyBackground(theme);
-    // 选了黑板自动切白色画笔
-    if (theme === "blackboard" && drawState.color === "#000000") {
+    // 深色主题自动切白色画笔
+    var dark = theme === "blackboard" || (THEMES[theme] && THEMES[theme].dark);
+    if (dark && drawState.color === "#000000") {
       setBoardColor("#ffffff");
-    } else if (theme !== "blackboard" && drawState.color === "#ffffff") {
+    } else if (!dark && drawState.color === "#ffffff") {
       setBoardColor("#000000");
     }
     showBoardToast("背景已换");
