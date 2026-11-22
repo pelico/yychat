@@ -349,6 +349,7 @@
     display: flex; align-items: center; gap: 4px;
   }
   .theme-btn.active, .palette-set-btn.active { background: var(--accent); border-color: var(--accent); }
+  .theme-sep { font-size: 11px; color: var(--muted); align-self: center; margin: 0 2px 0 8px; }
   .palette-set { display: flex; gap: 3px; margin-top: 4px; }
   .palette-dot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); cursor: pointer; }
   #board-canvas.theme-blackboard { background: #1e293b; }
@@ -509,7 +510,7 @@
       <button class="board-btn ghost active" id="board-smooth-btn" title="平滑线条：已开启（点击关闭）" aria-pressed="true">〰 平滑</button>
       <span class="row-divider"></span>
       <button class="board-btn ghost" id="board-template-btn" title="素材库：选素材点到画布上，可重复放置">🧩 素材</button>
-      <button class="board-btn ghost" id="board-theme-btn" title="背景主题：稿纸/格子/黑板">🎨 主题</button>
+      <button class="board-btn ghost" id="board-theme-btn" title="背景主题：纯色纸/场景（空房间、山野、海滩、卧室）">🎨 主题</button>
       <button class="board-btn ghost" id="board-palette-btn" title="预设配色方案">🎌 配色</button>
       <button class="board-btn ghost" id="board-save" title="保存为 PNG 图片">💾 保存</button>
       <button class="board-btn ghost" id="board-speak" title="朗读一句鼓励">🔊 鼓励</button>
@@ -536,6 +537,11 @@
     <button class="theme-btn" data-theme="paper">📜 米黄彩纸</button>
     <button class="theme-btn" data-theme="pink">🌸 粉色贺卡</button>
     <button class="theme-btn" data-theme="blackboard">🌑 黑板画</button>
+    <span class="theme-sep">场景</span>
+    <button class="theme-btn" data-theme="room">🚪 空房间</button>
+    <button class="theme-btn" data-theme="country">⛰️ 山野</button>
+    <button class="theme-btn" data-theme="beach">🏖️ 海滩</button>
+    <button class="theme-btn" data-theme="bedroom">🛏️ 卧室</button>
   </div>
   <!-- 预设配色面板 -->
   <div id="board-palette-panel" class="board-popup-panel">
@@ -1479,6 +1485,20 @@
     { cat: "小物件", name: "风筝", svg: '<svg viewBox="0 0 100 100"><path d="M50 12l24 28-24 28-24-28z" fill="#38bdf8" stroke="#0284c7" stroke-width="2"/><path d="M50 12v56M26 40h48" stroke="#0284c7" stroke-width="2"/><path d="M50 68c6 8-6 10 0 18" stroke="#94a3b8" stroke-width="2" fill="none"/><path d="M50 86l-6 6 8 2z" fill="#f472b6"/></svg>' },
     { cat: "小物件", name: "糖果", svg: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="18" fill="#f472b6"/><path d="M32 42l-14-10v36l14-10zM68 42l14-10v36l-14-10z" fill="#fb7185"/><path d="M42 42l16 16M58 42L42 58" stroke="#fff" stroke-width="3"/></svg>' },
     { cat: "小物件", name: "星星棒", svg: '<svg viewBox="0 0 100 100"><rect x="46" y="42" width="8" height="50" rx="4" fill="#f59e0b" transform="rotate(12 50 67)"/><path d="M52 10l7 17 18 2-14 12 4 18-15-9-15 9 4-18-14-12 18-2z" fill="#facc15" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round"/></svg>' },
+    { cat: "人物", name: "小男孩", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v18M56 62v18" stroke="#3b4a63" stroke-width="7" stroke-linecap="round"/><path d="M40 82h-7M60 82h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><path d="M39 44l-9 15M61 44l9 15" stroke="#f6c9a0" stroke-width="5" stroke-linecap="round"/><rect x="35" y="38" width="30" height="28" rx="8" fill="#60a5fa"/><path d="M35 54h30" stroke="#3b82f6" stroke-width="2"/><circle cx="50" cy="23" r="13" fill="#f6c9a0"/><path d="M37 21a13 13 0 0 1 26 0c-5-6-21-6-26 0z" fill="#2b2b2b"/><circle cx="45" cy="24" r="1.8" fill="#1f2937"/><circle cx="55" cy="24" r="1.8" fill="#1f2937"/><path d="M46 30c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "小女孩", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v18M56 62v18" stroke="#f6c9a0" stroke-width="6" stroke-linecap="round"/><path d="M40 83h-6M60 83h6" stroke="#ec4899" stroke-width="5" stroke-linecap="round"/><path d="M39 44l-9 15M61 44l9 15" stroke="#f6c9a0" stroke-width="5" stroke-linecap="round"/><path d="M42 38h16l10 28H32z" fill="#f472b6"/><path d="M42 38h16" stroke="#ec4899" stroke-width="3"/><circle cx="33" cy="23" r="6" fill="#7c4a1e"/><circle cx="67" cy="23" r="6" fill="#7c4a1e"/><circle cx="50" cy="23" r="13" fill="#f6c9a0"/><path d="M37 21a13 13 0 0 1 26 0c-5-7-21-7-26 0z" fill="#7c4a1e"/><circle cx="45" cy="24" r="1.8" fill="#1f2937"/><circle cx="55" cy="24" r="1.8" fill="#1f2937"/><circle cx="41" cy="29" r="2.2" fill="#fca5a5" opacity=".7"/><circle cx="59" cy="29" r="2.2" fill="#fca5a5" opacity=".7"/><path d="M46 30c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "妈妈", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v19M56 62v19" stroke="#f6c9a0" stroke-width="6" stroke-linecap="round"/><path d="M40 83h-6M60 83h6" stroke="#7c3aed" stroke-width="5" stroke-linecap="round"/><path d="M39 44l-9 15M61 44l9 15" stroke="#f6c9a0" stroke-width="5" stroke-linecap="round"/><path d="M40 38h20l12 34H28z" fill="#a78bfa"/><path d="M33 24a17 17 0 0 1 34 0v28c-6 3-9-7-17-7s-11 10-17 7z" fill="#7c4a1e"/><circle cx="50" cy="25" r="13" fill="#f6c9a0"/><path d="M37 23a13 13 0 0 1 26 0c-5-7-21-7-26 0z" fill="#7c4a1e"/><circle cx="45" cy="26" r="1.8" fill="#1f2937"/><circle cx="55" cy="26" r="1.8" fill="#1f2937"/><path d="M46 32c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "爸爸", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v20M56 62v20" stroke="#334155" stroke-width="8" stroke-linecap="round"/><path d="M40 84h-7M60 84h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><path d="M38 44l-9 14M62 44l9 14" stroke="#f6c9a0" stroke-width="5.5" stroke-linecap="round"/><rect x="33" y="38" width="34" height="28" rx="7" fill="#4ade80"/><path d="M45 38l5 8 5-8" fill="#f6c9a0"/><circle cx="50" cy="22" r="13" fill="#f6c9a0"/><path d="M37 20a13 13 0 0 1 26 0c-5-6-21-6-26 0z" fill="#2b2b2b"/><circle cx="45" cy="23" r="1.8" fill="#1f2937"/><circle cx="55" cy="23" r="1.8" fill="#1f2937"/><path d="M46 29c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "爷爷", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v20M56 62v20" stroke="#6b7280" stroke-width="7" stroke-linecap="round"/><path d="M40 84h-7M60 84h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><rect x="35" y="38" width="30" height="30" rx="7" fill="#b45309"/><rect x="44" y="38" width="12" height="30" fill="#fde68a"/><path d="M39 44l-8 14M61 44l8 12" stroke="#f6c9a0" stroke-width="5" stroke-linecap="round"/><path d="M78 60v30" stroke="#92400e" stroke-width="3.5" stroke-linecap="round"/><path d="M78 60c0-6 8-6 8 0" stroke="#92400e" stroke-width="3.5" fill="none" stroke-linecap="round"/><circle cx="50" cy="22" r="13" fill="#f6c9a0"/><path d="M37 21a13 13 0 0 1 26 0c-5-5-21-5-26 0z" fill="#cbd5e1"/><path d="M35 21c-2 6 2 10 2 10M65 21c2 6-2 10-2 10" stroke="#cbd5e1" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="45" cy="24" r="4" fill="none" stroke="#334155" stroke-width="1.8"/><circle cx="55" cy="24" r="4" fill="none" stroke="#334155" stroke-width="1.8"/><path d="M49 24h2" stroke="#334155" stroke-width="1.8"/><path d="M46 32c3 2 5 2 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "奶奶", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v20M56 62v20" stroke="#6b7280" stroke-width="6" stroke-linecap="round"/><path d="M40 84h-6M60 84h6" stroke="#7c3aed" stroke-width="5" stroke-linecap="round"/><path d="M39 44l-9 15M61 44l9 15" stroke="#f6c9a0" stroke-width="5" stroke-linecap="round"/><path d="M40 38h20l10 32H30z" fill="#f9a8d4"/><path d="M42 48h16v20c-5 4-11 4-16 0z" fill="#fff" opacity=".75"/><circle cx="50" cy="9" r="6" fill="#cbd5e1"/><circle cx="50" cy="23" r="13" fill="#f6c9a0"/><path d="M37 21a13 13 0 0 1 26 0c-5-5-21-5-26 0z" fill="#cbd5e1"/><circle cx="45" cy="24" r="4" fill="none" stroke="#334155" stroke-width="1.8"/><circle cx="55" cy="24" r="4" fill="none" stroke="#334155" stroke-width="1.8"/><path d="M49 24h2" stroke="#334155" stroke-width="1.8"/><path d="M46 32c3 2 5 2 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "宝宝", svg: '<svg viewBox="0 0 100 100"><path d="M42 70v10M58 70v10" stroke="#f6c9a0" stroke-width="6" stroke-linecap="round"/><path d="M38 80h-5M62 80h5" stroke="#f472b6" stroke-width="5" stroke-linecap="round"/><path d="M37 52l-8 10M63 52l8 10" stroke="#f6c9a0" stroke-width="6" stroke-linecap="round"/><rect x="36" y="44" width="28" height="30" rx="12" fill="#fde047"/><circle cx="50" cy="29" r="15" fill="#f6c9a0"/><path d="M50 14c1-6 5-7 5-7s0 5-2 7z" fill="#7c4a1e"/><circle cx="44" cy="29" r="2" fill="#1f2937"/><circle cx="56" cy="29" r="2" fill="#1f2937"/><circle cx="40" cy="34" r="2.4" fill="#fca5a5" opacity=".7"/><circle cx="60" cy="34" r="2.4" fill="#fca5a5" opacity=".7"/><path d="M46 35c2 2 6 2 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "医生", svg: '<svg viewBox="0 0 100 100"><path d="M44 64v18M56 64v18" stroke="#334155" stroke-width="7" stroke-linecap="round"/><path d="M40 84h-7M60 84h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><rect x="33" y="38" width="34" height="30" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/><rect x="44" y="38" width="12" height="20" fill="#60a5fa"/><path d="M37 44l-6 14M63 44l6 14" stroke="#e2e8f0" stroke-width="6" stroke-linecap="round"/><path d="M43 40c0 12 14 12 14 0" stroke="#334155" stroke-width="2" fill="none"/><circle cx="57" cy="54" r="3" fill="#94a3b8"/><rect x="58" y="60" width="7" height="7" rx="1.5" fill="#ef4444"/><path d="M61.5 61.5v4M59.5 63.5h4" stroke="#fff" stroke-width="1.6"/><circle cx="50" cy="23" r="13" fill="#f6c9a0"/><path d="M37 21a13 13 0 0 1 26 0c-5-6-21-6-26 0z" fill="#2b2b2b"/><circle cx="45" cy="24" r="1.8" fill="#1f2937"/><circle cx="55" cy="24" r="1.8" fill="#1f2937"/><path d="M46 30c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "警察", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v20M56 62v20" stroke="#1e3a8a" stroke-width="7" stroke-linecap="round"/><path d="M40 84h-7M60 84h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><rect x="34" y="38" width="32" height="28" rx="6" fill="#1d4ed8"/><path d="M34 60h32" stroke="#0f172a" stroke-width="6"/><path d="M38 44l-7 13M62 44l7 13" stroke="#1d4ed8" stroke-width="6" stroke-linecap="round"/><path d="M45 46l2 4 4 .5-3 3 1 4-4-2-4 2 1-4-3-3 4-.5z" fill="#facc15"/><circle cx="50" cy="23" r="13" fill="#f6c9a0"/><path d="M37 20a13 13 0 0 1 26 0c-5-6-21-6-26 0z" fill="#2b2b2b"/><path d="M36 15h28v6H36z" fill="#1e3a8a"/><path d="M33 21h34v4H33z" fill="#0f172a"/><circle cx="45" cy="26" r="1.8" fill="#1f2937"/><circle cx="55" cy="26" r="1.8" fill="#1f2937"/><path d="M46 32c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "消防员", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v20M56 62v20" stroke="#ea580c" stroke-width="8" stroke-linecap="round"/><path d="M40 84h-7M60 84h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><rect x="33" y="38" width="34" height="30" rx="6" fill="#fb923c"/><path d="M33 54h34" stroke="#fde047" stroke-width="5"/><path d="M36 44l-7 13M64 44l7 13" stroke="#fb923c" stroke-width="6.5" stroke-linecap="round"/><path d="M39 55l-6 2M61 55l6 2" stroke="#fde047" stroke-width="4" stroke-linecap="round"/><circle cx="50" cy="24" r="12" fill="#f6c9a0"/><circle cx="45" cy="25" r="1.8" fill="#1f2937"/><circle cx="55" cy="25" r="1.8" fill="#1f2937"/><path d="M46 31c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M35 22a15 13 0 0 1 30 0z" fill="#dc2626"/><rect x="31" y="21" width="38" height="4" rx="2" fill="#b91c1c"/></svg>' },
+    { cat: "人物", name: "厨师", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v20M56 62v20" stroke="#334155" stroke-width="7" stroke-linecap="round"/><path d="M40 84h-7M60 84h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><rect x="34" y="38" width="32" height="30" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/><path d="M44 38h12l-3 8h-6z" fill="#ef4444"/><path d="M40 44l-8 12M60 44l8 10" stroke="#f8fafc" stroke-width="6" stroke-linecap="round"/><path d="M36 66h28" stroke="#e2e8f0" stroke-width="2"/><circle cx="70" cy="56" r="4" fill="#cbd5e1"/><path d="M70 60v12" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/><circle cx="50" cy="25" r="12.5" fill="#f6c9a0"/><circle cx="45" cy="26" r="1.8" fill="#1f2937"/><circle cx="55" cy="26" r="1.8" fill="#1f2937"/><path d="M46 32c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="41" cy="8" r="7.5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/><circle cx="59" cy="8" r="7.5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/><circle cx="50" cy="6" r="8.5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/><rect x="38" y="13" width="24" height="6" rx="2" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/></svg>' },
+    { cat: "人物", name: "宇航员", svg: '<svg viewBox="0 0 100 100"><rect x="28" y="40" width="10" height="24" rx="4" fill="#cbd5e1"/><rect x="62" y="40" width="10" height="24" rx="4" fill="#cbd5e1"/><path d="M44 62v18M56 62v18" stroke="#f1f5f9" stroke-width="9" stroke-linecap="round"/><path d="M40 82h-7M60 82h7" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/><path d="M38 44l-8 12M62 44l8 12" stroke="#f1f5f9" stroke-width="6" stroke-linecap="round"/><rect x="35" y="38" width="30" height="30" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2"/><rect x="43" y="48" width="14" height="10" rx="2" fill="#94a3b8"/><circle cx="46" cy="53" r="1.6" fill="#22c55e"/><circle cx="50" cy="53" r="1.6" fill="#facc15"/><circle cx="54" cy="53" r="1.6" fill="#ef4444"/><circle cx="50" cy="23" r="17" fill="#e0f2fe" stroke="#94a3b8" stroke-width="2.5"/><circle cx="50" cy="24" r="11" fill="#f6c9a0"/><circle cx="46" cy="24" r="1.7" fill="#1f2937"/><circle cx="54" cy="24" r="1.7" fill="#1f2937"/><path d="M46 30c2 2 6 2 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M62 14c4 3 6 8 6 12" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "老师", svg: '<svg viewBox="0 0 100 100"><path d="M44 62v20M56 62v20" stroke="#4b5563" stroke-width="7" stroke-linecap="round"/><path d="M40 84h-7M60 84h7" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/><path d="M39 44l-8 12M61 44l7 14" stroke="#f6c9a0" stroke-width="5" stroke-linecap="round"/><rect x="34" y="38" width="32" height="30" rx="6" fill="#a78bfa"/><path d="M44 38h12v12H44z" fill="#f8fafc"/><rect x="27" y="56" width="18" height="14" rx="2" fill="#3b82f6"/><path d="M32 60h8M32 64h8" stroke="#fff" stroke-width="1.6"/><circle cx="50" cy="23" r="13" fill="#f6c9a0"/><path d="M37 21a13 13 0 0 1 26 0c-5-6-21-6-26 0z" fill="#7c4a1e"/><path d="M42 23c4-4 8 4 8 0s4 4 8 0" stroke="#7c4a1e" stroke-width="2" fill="none"/><circle cx="45" cy="26" r="4" fill="none" stroke="#334155" stroke-width="1.6"/><circle cx="55" cy="26" r="4" fill="none" stroke="#334155" stroke-width="1.6"/><path d="M49 26h2" stroke="#334155" stroke-width="1.6"/><path d="M46 33c3 2 5 2 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' },
+    { cat: "人物", name: "公主", svg: '<svg viewBox="0 0 100 100"><path d="M40 38h20l16 42H24z" fill="#f9a8d4"/><path d="M32 74a8 8 0 0 0 16 0z" fill="#fbcfe8"/><path d="M44 74a8 8 0 0 0 16 0z" fill="#fbcfe8"/><path d="M56 74a8 8 0 0 0 16 0z" fill="#fbcfe8"/><path d="M35 44l-9 13M65 44l9 13" stroke="#f6c9a0" stroke-width="5" stroke-linecap="round"/><path d="M40 38h20l-3 10H43z" fill="#f472b6"/><path d="M32 24a18 18 0 0 1 36 0v30c-5 2-8-8-18-8s-13 10-18 8z" fill="#fcd34d"/><circle cx="50" cy="24" r="13" fill="#f6c9a0"/><path d="M37 22a13 13 0 0 1 26 0c-5-7-21-7-26 0z" fill="#fcd34d"/><circle cx="45" cy="25" r="1.8" fill="#1f2937"/><circle cx="55" cy="25" r="1.8" fill="#1f2937"/><circle cx="41" cy="30" r="2.2" fill="#fca5a5" opacity=".75"/><circle cx="59" cy="30" r="2.2" fill="#fca5a5" opacity=".75"/><path d="M46 31c3 3 5 3 8 0" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M40 12l3 5 7-8 7 8 3-5 1 9H39z" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5" stroke-linejoin="round"/></svg>' },
   ];
 
   var stickerCache = {};          // svg 字符串 → 已加载的 Image
@@ -1801,6 +1821,229 @@
     showBoardToast("已回到画笔 ✏️");
   });
 
+  // --- 场景背景（安静书风格）：直接画到画布上，保存/发送也带着 ---
+  var bgSnapshot = null;          // 场景背景基线：打分时把背景图案排除在外
+  function sceneRR(x, y, w, h, r) {
+    bctx.beginPath();
+    bctx.moveTo(x + r, y);
+    bctx.arcTo(x + w, y, x + w, y + h, r);
+    bctx.arcTo(x + w, y + h, x, y + h, r);
+    bctx.arcTo(x, y + h, x, y, r);
+    bctx.arcTo(x, y, x + w, y, r);
+    bctx.closePath();
+  }
+  function sceneCloud(cx, cy, s) {
+    bctx.fillStyle = "rgba(255,255,255,.92)";
+    bctx.beginPath();
+    bctx.arc(cx - s * 0.8, cy, s * 0.9, 0, Math.PI * 2);
+    bctx.arc(cx, cy - s * 0.5, s * 1.15, 0, Math.PI * 2);
+    bctx.arc(cx + s * 0.9, cy, s * 0.85, 0, Math.PI * 2);
+    bctx.arc(cx, cy + s * 0.35, s, 0, Math.PI * 2);
+    bctx.fill();
+  }
+  function sceneTree(x, y, s) {
+    bctx.fillStyle = "#8b5a2b";
+    bctx.fillRect(x - s * 0.07, y - s * 0.08, s * 0.14, s * 0.34);
+    bctx.fillStyle = "#4d9e58";
+    for (var i = 0; i < 3; i++) {
+      var w = s * (0.8 - i * 0.18), yy = y - i * s * 0.2;
+      bctx.beginPath();
+      bctx.moveTo(x, yy - s * 0.78);
+      bctx.lineTo(x - w / 2, yy);
+      bctx.lineTo(x + w / 2, yy);
+      bctx.closePath();
+      bctx.fill();
+    }
+  }
+  function sceneStar(cx, cy, r, color) {
+    bctx.fillStyle = color;
+    bctx.beginPath();
+    for (var i = 0; i < 10; i++) {
+      var rr = i % 2 ? r * 0.45 : r;
+      var a = -Math.PI / 2 + i * Math.PI / 5;
+      var px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr;
+      if (i === 0) bctx.moveTo(px, py); else bctx.lineTo(px, py);
+    }
+    bctx.closePath();
+    bctx.fill();
+  }
+
+  var SCENES = {
+    // 空房间：墙、地板、窗、门、地毯，留白给孩子画家具
+    room: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      bctx.fillStyle = "#fdf6ea"; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "#e9c9a3"; bctx.fillRect(0, H * 0.72, W, H * 0.28);
+      bctx.strokeStyle = "#dcb387"; bctx.lineWidth = 2;
+      for (var i = 1; i < 5; i++) {
+        bctx.beginPath(); bctx.moveTo(0, H * 0.72 + i * 30); bctx.lineTo(W, H * 0.72 + i * 30); bctx.stroke();
+      }
+      bctx.fillStyle = "#fffaf2"; bctx.fillRect(0, H * 0.72 - 14, W, 14);
+      bctx.strokeStyle = "#e6d8c5"; bctx.lineWidth = 2;
+      bctx.beginPath(); bctx.moveTo(0, H * 0.72 - 14); bctx.lineTo(W, H * 0.72 - 14); bctx.stroke();
+      // 窗户
+      bctx.fillStyle = "#fffaf2"; sceneRR(600, 66, 220, 178, 12); bctx.fill();
+      bctx.fillStyle = "#c7e9ff"; sceneRR(612, 78, 196, 154, 6); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(762, 122, 22, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#93c5fd"; bctx.lineWidth = 6;
+      bctx.beginPath(); bctx.moveTo(710, 78); bctx.lineTo(710, 232); bctx.moveTo(612, 155); bctx.lineTo(808, 155); bctx.stroke();
+      // 窗帘
+      bctx.fillStyle = "#fbcfe8";
+      bctx.beginPath(); bctx.moveTo(586, 58); bctx.lineTo(632, 58); bctx.lineTo(620, 258); bctx.lineTo(586, 258); bctx.closePath(); bctx.fill();
+      bctx.beginPath(); bctx.moveTo(834, 58); bctx.lineTo(788, 58); bctx.lineTo(800, 258); bctx.lineTo(834, 258); bctx.closePath(); bctx.fill();
+      // 门
+      bctx.fillStyle = "#d6a97a"; bctx.fillRect(76, 166, 142, 266);
+      bctx.strokeStyle = "#b98a5e"; bctx.lineWidth = 4; bctx.strokeRect(76, 166, 142, 266);
+      bctx.fillStyle = "#fef3c7"; bctx.fillRect(94, 184, 106, 98);
+      bctx.fillStyle = "#facc15"; bctx.beginPath(); bctx.arc(198, 306, 6, 0, Math.PI * 2); bctx.fill();
+      // 地毯
+      bctx.fillStyle = "#ddd6fe"; bctx.beginPath(); bctx.ellipse(480, 505, 200, 72, 0, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#a78bfa"; bctx.lineWidth = 6;
+      bctx.beginPath(); bctx.ellipse(480, 505, 168, 55, 0, 0, Math.PI * 2); bctx.stroke();
+    },
+
+    // 山野：天空、太阳、云、远山、草坡、小路、松树
+    country: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var sky = bctx.createLinearGradient(0, 0, 0, H * 0.66);
+      sky.addColorStop(0, "#cfeaff"); sky.addColorStop(1, "#effaff");
+      bctx.fillStyle = sky; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "rgba(253,224,71,.35)"; bctx.beginPath(); bctx.arc(762, 92, 62, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(762, 92, 40, 0, Math.PI * 2); bctx.fill();
+      sceneCloud(190, 96, 26); sceneCloud(600, 150, 18);
+      // 远山
+      bctx.fillStyle = "#aecbe6";
+      bctx.beginPath(); bctx.moveTo(0, 340); bctx.lineTo(150, 196); bctx.lineTo(300, 340); bctx.closePath(); bctx.fill();
+      bctx.beginPath(); bctx.moveTo(210, 340); bctx.lineTo(380, 176); bctx.lineTo(560, 340); bctx.closePath(); bctx.fill();
+      bctx.beginPath(); bctx.moveTo(470, 340); bctx.lineTo(640, 210); bctx.lineTo(810, 340); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#e8f4ff";
+      bctx.beginPath(); bctx.moveTo(380, 176); bctx.lineTo(340, 214); bctx.lineTo(370, 210); bctx.lineTo(400, 226); bctx.lineTo(422, 210); bctx.closePath(); bctx.fill();
+      // 中景草坡
+      bctx.fillStyle = "#bde79e";
+      bctx.beginPath(); bctx.moveTo(0, 382);
+      bctx.bezierCurveTo(180, 320, 340, 420, 500, 366);
+      bctx.bezierCurveTo(660, 316, 780, 392, W, 352);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      // 近景草地
+      bctx.fillStyle = "#9ad97a";
+      bctx.beginPath(); bctx.moveTo(0, 470);
+      bctx.bezierCurveTo(220, 420, 420, 500, 620, 452);
+      bctx.bezierCurveTo(760, 420, 860, 470, W, 448);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      // 小路
+      bctx.fillStyle = "#f6e7bd";
+      bctx.beginPath(); bctx.moveTo(400, H);
+      bctx.bezierCurveTo(430, 520, 470, 470, 480, 440);
+      bctx.lineTo(520, 440);
+      bctx.bezierCurveTo(500, 484, 520, 530, 560, H);
+      bctx.closePath(); bctx.fill();
+      // 松树
+      sceneTree(112, 470, 108);
+      sceneTree(792, 456, 120);
+      sceneTree(690, 420, 72);
+      sceneTree(210, 410, 66);
+    },
+
+    // 海滩：天空、太阳、海、浪花、沙滩、椰树、贝壳
+    beach: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      var sky = bctx.createLinearGradient(0, 0, 0, H * 0.5);
+      sky.addColorStop(0, "#bfe9ff"); sky.addColorStop(1, "#fff0c9");
+      bctx.fillStyle = sky; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "rgba(255,183,77,.3)"; bctx.beginPath(); bctx.arc(158, 96, 60, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#fbbf24"; bctx.beginPath(); bctx.arc(158, 96, 38, 0, Math.PI * 2); bctx.fill();
+      sceneCloud(560, 100, 24); sceneCloud(760, 168, 16);
+      // 海
+      bctx.fillStyle = "#7dd3fc"; bctx.fillRect(0, 270, W, 144);
+      bctx.strokeStyle = "#e0f2fe"; bctx.lineWidth = 4; bctx.lineCap = "round";
+      for (var i = 0; i < 4; i++) {
+        bctx.beginPath();
+        bctx.moveTo(80 + i * 210, 300 + (i % 2) * 26);
+        bctx.quadraticCurveTo(120 + i * 210, 290 + (i % 2) * 26, 160 + i * 210, 300 + (i % 2) * 26);
+        bctx.stroke();
+      }
+      // 沙滩
+      bctx.fillStyle = "#fde5b0";
+      bctx.beginPath(); bctx.moveTo(0, 412);
+      bctx.bezierCurveTo(200, 398, 360, 428, 520, 410);
+      bctx.bezierCurveTo(680, 392, 800, 424, W, 408);
+      bctx.lineTo(W, H); bctx.lineTo(0, H); bctx.closePath(); bctx.fill();
+      bctx.strokeStyle = "#fff"; bctx.lineWidth = 6;
+      bctx.beginPath(); bctx.moveTo(0, 414);
+      bctx.bezierCurveTo(200, 400, 360, 430, 520, 412);
+      bctx.bezierCurveTo(680, 394, 800, 426, W, 410);
+      bctx.stroke();
+      // 椰树
+      bctx.strokeStyle = "#92400e"; bctx.lineWidth = 13; bctx.lineCap = "round";
+      bctx.beginPath(); bctx.moveTo(112, 548); bctx.quadraticCurveTo(86, 456, 122, 376); bctx.stroke();
+      bctx.fillStyle = "#22c55e";
+      [[-58, -8], [58, -8], [-44, 38], [44, 38], [0, -46]].forEach(function (d) {
+        bctx.save();
+        bctx.translate(122, 372);
+        bctx.rotate(Math.atan2(d[1], d[0]));
+        bctx.beginPath(); bctx.ellipse(40, 0, 38, 13, 0, 0, Math.PI * 2); bctx.fill();
+        bctx.restore();
+      });
+      bctx.fillStyle = "#92400e";
+      bctx.beginPath(); bctx.arc(116, 384, 6, 0, Math.PI * 2); bctx.fill();
+      bctx.beginPath(); bctx.arc(130, 382, 6, 0, Math.PI * 2); bctx.fill();
+      // 海星和贝壳
+      sceneStar(742, 502, 28, "#fb923c");
+      bctx.fillStyle = "#f9a8d4"; bctx.beginPath(); bctx.arc(812, 470, 14, Math.PI, 0); bctx.closePath(); bctx.fill();
+      bctx.strokeStyle = "#f472b6"; bctx.lineWidth = 2;
+      bctx.beginPath(); bctx.moveTo(806, 470); bctx.lineTo(806, 456); bctx.moveTo(812, 470); bctx.lineTo(812, 454); bctx.moveTo(818, 470); bctx.lineTo(818, 456); bctx.stroke();
+    },
+
+    // 卧室：墙、地板、床、床头灯、窗、地毯
+    bedroom: function () {
+      var W = boardCanvas.width, H = boardCanvas.height;
+      bctx.fillStyle = "#f3e8ff"; bctx.fillRect(0, 0, W, H);
+      bctx.fillStyle = "#dcb98a"; bctx.fillRect(0, H * 0.72, W, H * 0.28);
+      bctx.strokeStyle = "#cda774"; bctx.lineWidth = 2;
+      for (var i = 1; i < 5; i++) {
+        bctx.beginPath(); bctx.moveTo(0, H * 0.72 + i * 30); bctx.lineTo(W, H * 0.72 + i * 30); bctx.stroke();
+      }
+      bctx.fillStyle = "#fdf6ff"; bctx.fillRect(0, H * 0.72 - 14, W, 14);
+      // 窗户
+      bctx.fillStyle = "#fff"; sceneRR(636, 66, 196, 164, 10); bctx.fill();
+      bctx.fillStyle = "#bfe3ff"; sceneRR(646, 76, 176, 144, 6); bctx.fill();
+      bctx.fillStyle = "#fde047"; bctx.beginPath(); bctx.arc(780, 112, 18, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#93c5fd"; bctx.lineWidth = 5;
+      bctx.beginPath(); bctx.moveTo(734, 76); bctx.lineTo(734, 220); bctx.moveTo(646, 148); bctx.lineTo(822, 148); bctx.stroke();
+      bctx.fillStyle = "#fbcfe8";
+      bctx.beginPath(); bctx.moveTo(624, 58); bctx.lineTo(664, 58); bctx.lineTo(654, 242); bctx.lineTo(624, 242); bctx.closePath(); bctx.fill();
+      bctx.beginPath(); bctx.moveTo(844, 58); bctx.lineTo(804, 58); bctx.lineTo(814, 242); bctx.lineTo(844, 242); bctx.closePath(); bctx.fill();
+      // 床
+      bctx.fillStyle = "#c4b5fd"; sceneRR(58, 286, 56, 196, 14); bctx.fill();
+      bctx.fillStyle = "#b45309";
+      bctx.fillRect(104, 462, 12, 26); bctx.fillRect(366, 462, 12, 26);
+      bctx.fillStyle = "#ffffff"; sceneRR(100, 388, 290, 58, 16); bctx.fill();
+      bctx.fillStyle = "#f9a8d4"; sceneRR(158, 362, 232, 66, 18); bctx.fill();
+      bctx.strokeStyle = "#f472b6"; bctx.lineWidth = 3;
+      bctx.beginPath(); bctx.moveTo(158, 410); bctx.lineTo(390, 410); bctx.stroke();
+      bctx.fillStyle = "#fff"; sceneRR(112, 356, 72, 38, 14); bctx.fill();
+      bctx.strokeStyle = "#e2e8f0"; bctx.lineWidth = 2; sceneRR(112, 356, 72, 38, 14); bctx.stroke();
+      // 床头柜 + 台灯
+      bctx.fillStyle = "#d6a97a"; sceneRR(418, 428, 92, 70, 8); bctx.fill();
+      bctx.strokeStyle = "#b98a5e"; bctx.lineWidth = 3;
+      bctx.beginPath(); bctx.moveTo(428, 456); bctx.lineTo(500, 456); bctx.stroke();
+      bctx.fillStyle = "#facc15"; bctx.beginPath(); bctx.arc(464, 472, 4, 0, Math.PI * 2); bctx.fill();
+      bctx.fillStyle = "#94a3b8"; bctx.fillRect(460, 402, 8, 26);
+      bctx.fillStyle = "#fde68a";
+      bctx.beginPath(); bctx.moveTo(436, 404); bctx.lineTo(464, 372); bctx.lineTo(492, 404); bctx.closePath(); bctx.fill();
+      bctx.strokeStyle = "#f59e0b"; bctx.lineWidth = 2; bctx.stroke();
+      // 地毯
+      bctx.fillStyle = "#fbcfe8"; bctx.beginPath(); bctx.ellipse(630, 520, 150, 44, 0, 0, Math.PI * 2); bctx.fill();
+      bctx.strokeStyle = "#f9a8d4"; bctx.lineWidth = 5;
+      bctx.beginPath(); bctx.ellipse(630, 520, 122, 32, 0, 0, Math.PI * 2); bctx.stroke();
+      // 墙上小画
+      bctx.fillStyle = "#fff"; bctx.fillRect(300, 112, 118, 88);
+      bctx.strokeStyle = "#c4b5fd"; bctx.lineWidth = 6; bctx.strokeRect(300, 112, 118, 88);
+      bctx.fillStyle = "#a7f3d0"; bctx.beginPath(); bctx.arc(359, 172, 26, Math.PI, 0); bctx.closePath(); bctx.fill();
+      bctx.fillStyle = "#fbbf24"; bctx.beginPath(); bctx.arc(340, 138, 9, 0, Math.PI * 2); bctx.fill();
+    }
+  };
+
   // --- 背景主题系统 ---
   var currentTheme = "white";
   var THEMES = {
@@ -1808,7 +2051,11 @@
     bluegrid:  { fill: "#ffffff", canvasClass: "theme-bluegrid", grid: true, gridColor: "#cfe2ff", gridStep: 30 },
     paper:     { fill: "#fef3c7", canvasClass: "theme-paper",    grid: false },
     pink:      { fill: "#fce7f3", canvasClass: "theme-pink",     grid: false },
-    blackboard:{ fill: "#1e293b", canvasClass: "theme-blackboard", grid: false }
+    blackboard:{ fill: "#1e293b", canvasClass: "theme-blackboard", grid: false },
+    room:      { fill: "#fdf6ea", canvasClass: "", grid: false, scene: "room" },
+    country:   { fill: "#effaff", canvasClass: "", grid: false, scene: "country" },
+    beach:     { fill: "#fde5b0", canvasClass: "", grid: false, scene: "beach" },
+    bedroom:   { fill: "#f3e8ff", canvasClass: "", grid: false, scene: "bedroom" }
   };
 
   function getCurrentTheme() { return currentTheme; }
@@ -1822,6 +2069,9 @@
       if (cls) boardCanvas.classList.remove(cls);
     });
     if (t.canvasClass) boardCanvas.classList.add(t.canvasClass);
+    bctx.save();
+    bctx.globalAlpha = 1;
+    bctx.globalCompositeOperation = "source-over";
     // 填底色
     bctx.fillStyle = t.fill;
     bctx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
@@ -1834,6 +2084,14 @@
         bctx.moveTo(0, y); bctx.lineTo(boardCanvas.width, y);
       }
       bctx.stroke();
+    }
+    // 场景背景
+    if (t.scene && SCENES[t.scene]) SCENES[t.scene]();
+    bctx.restore();
+    // 记录场景基线：打分时只算孩子新画的内容，不把背景图案当成画作
+    bgSnapshot = null;
+    if (t.scene) {
+      try { bgSnapshot = bctx.getImageData(0, 0, boardCanvas.width, boardCanvas.height).data; } catch (e) {}
     }
   }
 
@@ -2206,7 +2464,12 @@
       var cy = Math.min(2, Math.floor(y / ch));
       for (var x = 0; x < w; x += stride) {
         var i = (y * w + x) * 4;
-        var diff = Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
+        var diff;
+        if (bgSnapshot) {
+          diff = Math.abs(d[i] - bgSnapshot[i]) + Math.abs(d[i + 1] - bgSnapshot[i + 1]) + Math.abs(d[i + 2] - bgSnapshot[i + 2]);
+        } else {
+          diff = Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
+        }
         var cx = Math.min(2, Math.floor(x / cw));
         var ci = cy * 3 + cx;
         cellTotal[ci]++; total++;
